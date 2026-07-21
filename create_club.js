@@ -52,25 +52,37 @@ async function executeAdminFlow(clubName, email, password) {
     }
   } else {
     userId = authData.user?.id;
-    console.log(`Sucesso: Novo operador criado no Auth com ID: ${userId}`);
+    console.log(`Sucesso: Novo operador cadastrado no Auth com ID: ${userId}`);
   }
 
-  // 2.5. Autenticar operador no script para obter o token JWT e passar pela política RLS do profile
-  console.log('Autenticando operador para permitir inserção de perfil...');
+  // 2.5. Autenticar operador no script para obter o token JWT se possível
+  console.log('Autenticando operador para associar a sessão...');
   const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
     email,
     password
   });
 
   if (loginError) {
-    console.error('Erro ao autenticar operador:', loginError.message);
+    console.warn(`Aviso de Autenticação: ${loginError.message}. Tentando criar associação anonimamente...`);
+    // Se o usuário já existia e falhou, precisamos resgatar o ID dele de alguma forma.
+    // Se o signUp retornou o user, o userId está preenchido.
+    if (!userId && authData?.user?.id) {
+      userId = authData.user.id;
+    }
+    // Se não conseguimos o ID de nenhuma forma, tentamos buscar na tabela profiles se já existia, 
+    // ou fazemos a inserção se o userId estiver disponível.
+  } else {
+    userId = loginData.user?.id;
+    console.log(`Sucesso: Operador autenticado com ID: ${userId}`);
+  }
+
+  if (!userId) {
+    console.error('Erro: Não foi possível obter o ID do usuário operador.');
     return;
   }
-  userId = loginData.user?.id;
-  console.log(`Sucesso: Operador autenticado com ID: ${userId}`);
 
   // 3. Vincular o Usuário ao Clube (Criar ou Atualizar Perfil)
-  console.log(`3. Criando perfil de associação (profiles)...`);
+  console.log(`3. Criando perfil de associação (profiles) para o ID: ${userId}...`);
   const { error: profileError } = await supabase
     .from('profiles')
     .upsert({
@@ -90,7 +102,11 @@ async function executeAdminFlow(clubName, email, password) {
   console.log(`Operador: ${email}`);
   console.log(`Senha: ${password}`);
   console.log('----------------------------------------------------');
-  console.log('Agora você já pode entregar o e-mail e senha ao cliente!');
+  if (loginError && loginError.message.toLowerCase().includes('confirm')) {
+    console.log('NOTA: O operador precisará CONFIRMAR o e-mail (ou você deve confirmá-lo no painel do Supabase) antes de conseguir efetuar o login no sistema.');
+  } else {
+    console.log('Agora você já pode entregar o e-mail e senha ao cliente!');
+  }
 }
 
 const args = process.argv.slice(2);

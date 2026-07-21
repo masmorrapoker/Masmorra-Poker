@@ -20,3 +20,17 @@ CREATE POLICY "Allow all operations for clubs" ON public.clubs FOR ALL USING (tr
 DROP POLICY IF EXISTS "Allow all operations for profiles" ON public.profiles;
 CREATE POLICY "Allow all operations for profiles" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 
+-- 4. Criar o bucket de storage para logos de clubes e configurar políticas de acesso
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('logos', 'logos', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "Allow public read access to logos" ON storage.objects;
+CREATE POLICY "Allow public read access to logos" ON storage.objects
+  FOR SELECT USING (bucket_id = 'logos');
+
+DROP POLICY IF EXISTS "Allow public upload to logos" ON storage.objects;
+CREATE POLICY "Allow public upload to logos" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'logos');
+
+

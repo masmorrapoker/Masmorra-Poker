@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useClub } from '../contexts/ClubContext';
 import { clubService } from '../services/clubService';
-import { Save, AlertCircle, CheckCircle, ArrowLeft, Settings as SettingsIcon } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, ArrowLeft, Settings as SettingsIcon, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Settings() {
@@ -10,6 +10,8 @@ export default function Settings() {
   
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [beerPrice, setBeerPrice] = useState('');
   const [energyPrice, setEnergyPrice] = useState('');
   
@@ -21,10 +23,24 @@ export default function Settings() {
     if (club) {
       setName(club.name);
       setLogoUrl(club.logo_url || '');
+      setLogoPreview(club.logo_url || '');
       setBeerPrice(club.beer_price.toString());
       setEnergyPrice(club.energy_price.toString());
     }
   }, [club]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB Limit
+        setErrorMsg('O arquivo de logotipo deve ter no máximo 2MB.');
+        return;
+      }
+      setErrorMsg(null);
+      setLogoFile(file);
+      setLogoPreview(URL.createObjectURL(file));
+    }
+  };
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -48,14 +64,24 @@ export default function Settings() {
 
     setLoading(true);
     try {
+      let finalLogoUrl = logoUrl;
+      
+      // Upload file to Supabase Storage if a new logo is selected
+      if (logoFile) {
+        finalLogoUrl = await clubService.uploadClubLogo(clubId, logoFile);
+        setLogoUrl(finalLogoUrl);
+      }
+
       await clubService.updateClub(clubId, {
         name: name.trim(),
-        logo_url: logoUrl.trim() || null,
+        logo_url: finalLogoUrl || null,
         beer_price: parsedBeer,
         energy_price: parsedEnergy
       });
+      
       await refreshClub();
       setSuccessMsg('Configurações salvas com sucesso!');
+      setLogoFile(null); // Clear selected file state on success
     } catch (err: any) {
       console.error('Error saving settings:', err);
       setErrorMsg(err.message || 'Erro ao atualizar as configurações. Verifique os dados e tente novamente.');
@@ -91,9 +117,9 @@ export default function Settings() {
               Estas configurações definem as informações públicas e regras financeiras da copa do seu clube.
             </p>
             <div className="p-4 bg-black bg-opacity-30 rounded-xl flex flex-col items-center justify-center gap-3">
-              {logoUrl ? (
+              {logoPreview ? (
                 <img 
-                  src={logoUrl} 
+                  src={logoPreview} 
                   alt="Logo do Clube" 
                   className="w-16 h-16 rounded-full object-cover border border-glass-border" 
                   onError={(e) => {
@@ -146,17 +172,43 @@ export default function Settings() {
                 />
               </div>
 
+              {/* Logo Upload Component */}
               <div className="input-group">
                 <label className="text-xs font-bold text-muted uppercase tracking-wider mb-2 block">
-                  URL do Logotipo (Opcional)
+                  Logotipo do Clube
                 </label>
-                <input
-                  type="url"
-                  className="input rounded-xl"
-                  placeholder="https://exemplo.com/logo.png"
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                />
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border">
+                  <div className="flex-shrink-0 relative group">
+                    {logoPreview ? (
+                      <img 
+                        src={logoPreview} 
+                        alt="Visualização" 
+                        className="w-16 h-16 rounded-full object-cover border border-glass-border"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://placehold.co/100?text=Logo';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-primary bg-opacity-10 text-primary flex items-center justify-center text-xl font-bold border border-primary border-opacity-20">
+                        {name ? name.substring(0, 2).toUpperCase() : 'MM'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center sm:text-left flex-1">
+                    <p className="text-xs font-medium text-white mb-1">Upload de Nova Logo</p>
+                    <p className="text-[10px] text-muted mb-3">Formatos aceitos: PNG, JPG, WEBP. Tamanho máx: 2MB.</p>
+                    <label className="btn btn-outline btn-sm cursor-pointer inline-flex items-center gap-2">
+                      <Upload size={14} />
+                      <span>Selecionar Imagem</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -214,3 +266,4 @@ export default function Settings() {
     </div>
   );
 }
+

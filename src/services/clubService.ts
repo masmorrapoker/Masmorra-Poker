@@ -43,5 +43,29 @@ export const clubService = {
       console.error('Error updating club:', error);
       throw error;
     }
+  },
+
+  async uploadClubLogo(clubId: string, file: File): Promise<string> {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${clubId}-${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (uploadError) {
+      console.error('Error uploading logo:', uploadError);
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage
+      .from('logos')
+      .getPublicUrl(fileName);
+
+    return data.publicUrl;
   }
 };
+
