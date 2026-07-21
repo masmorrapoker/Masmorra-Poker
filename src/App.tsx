@@ -70,7 +70,7 @@ function MainApp() {
         {/* Public Routes */}
         <Route 
           path="/" 
-          element={user ? <Navigate to="/dashboard" replace /> : <Home />} 
+          element={<Home />} 
         />
         <Route 
           path="/login" 

@@ -11,7 +11,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { clubName, clubLogo } = useClub();
 
   const navItems = [
-    { path: '/', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
+    { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={22} /> },
     { path: '/profile', label: 'Perfil', icon: <User size={22} /> },
     { path: '/settings', label: 'Ajustes', icon: <Settings size={22} /> },
@@ -20,8 +20,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const isSubPage = location.pathname.startsWith('/table/') || location.pathname.startsWith('/player/');
 
   const isTabActive = (itemPath: string) => {
-    if (itemPath === '/') {
-      return location.pathname === '/' || location.pathname.startsWith('/table/');
+    if (itemPath === '/dashboard') {
+      return location.pathname === '/dashboard' || location.pathname.startsWith('/table/');
     }
     if (itemPath === '/players') {
       return location.pathname.startsWith('/players') || (location.pathname.startsWith('/player/') && !location.pathname.startsWith('/profile'));
@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-card border-r border-glass-border">
         <div className="p-6 border-b border-glass-border flex flex-col gap-4 text-left">
-          <Link to="/" className="flex items-center gap-3 text-xl font-bold text-white no-underline">
+          <Link to="/dashboard" className="flex items-center gap-3 text-xl font-bold text-white no-underline">
             {clubLogo ? (
               <img 
                 src={clubLogo} 
@@ -99,7 +99,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-sm font-semibold">Voltar</span>
             </button>
           ) : (
-            <Link to="/" className="flex items-center gap-2 text-xl font-extrabold text-white no-underline">
+            <Link to="/dashboard" className="flex items-center gap-2 text-xl font-extrabold text-white no-underline">
               {clubLogo ? (
                 <img 
                   src={clubLogo} 
