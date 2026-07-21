@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import type { GlobalPlayer } from '../types';
 import { Plus, Users, Search, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useClub } from '../contexts/ClubContext';
+import { playerService } from '../services/playerService';
 
 export default function Players() {
   const [players, setPlayers] = useState<GlobalPlayer[]>([]);
@@ -11,13 +13,16 @@ export default function Players() {
   
   const [isAdding, setIsAdding] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
+  const { clubId } = useClub();
 
   useEffect(() => {
+    if (!clubId) return;
     fetchPlayers();
     
+    // Subscribe to realtime changes
     const channel = supabase
       .channel('public:players')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `club_id=eq.${clubId}` }, () => {
         fetchPlayers();
       })
       .subscribe();
@@ -25,17 +30,13 @@ export default function Players() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [clubId]);
 
   async function fetchPlayers() {
+    if (!clubId) return;
     try {
-      const { data, error } = await supabase
-        .from('players')
-        .select('*')
-        .order('name', { ascending: true });
-        
-      if (error) throw error;
-      setPlayers(data || []);
+      const data = await playerService.getPlayers(clubId);
+      setPlayers(data);
     } catch (error) {
       console.error('Error fetching players:', error);
     } finally {
@@ -45,13 +46,10 @@ export default function Players() {
 
   async function addPlayer(e: React.FormEvent) {
     e.preventDefault();
-    if (!newPlayerName.trim()) return;
+    if (!newPlayerName.trim() || !clubId) return;
 
     try {
-      await supabase
-        .from('players')
-        .insert([{ name: newPlayerName }]);
-      
+      await playerService.createPlayer(clubId, newPlayerName);
       setIsAdding(false);
       setNewPlayerName('');
     } catch (error) {
@@ -68,9 +66,9 @@ export default function Players() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="mb-2">Jogadores Cadastrados</h1>
-          <p className="text-muted">Gerencie todos os jogadores do clube e veja seus históricos.</p>
+          <p className="text-muted text-sm">Gerencie todos os jogadores do clube e veja seus históricos.</p>
         </div>
-        <button className="btn btn-primary shadow-lg" onClick={() => setIsAdding(true)}>
+        <button className="btn btn-primary shadow-lg w-full md:w-auto" onClick={() => setIsAdding(true)}>
           <Plus size={20} /> Novo Jogador
         </button>
       </div>

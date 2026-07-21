@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import type { GlobalPlayer, Table, Transaction } from '../types';
 import { ArrowLeft, History, DollarSign, TrendingUp, TrendingDown, Coffee } from 'lucide-react';
+import { useClub } from '../contexts/ClubContext';
+import { playerService } from '../services/playerService';
 
 export default function PlayerProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   const [player, setPlayer] = useState<GlobalPlayer | null>(null);
   const [tablesHistory, setTablesHistory] = useState<(Table & { player_table_id: string })[]>([]);
@@ -14,60 +16,18 @@ export default function PlayerProfile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
+    if (id && clubId) {
       fetchPlayerProfile();
     }
-  }, [id]);
+  }, [id, clubId]);
 
   async function fetchPlayerProfile() {
+    if (!id || !clubId) return;
     try {
-      // 1. Get global player
-      const { data: globalPlayer, error: pError } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', id)
-        .single();
-        
-      if (pError) throw pError;
-      setPlayer(globalPlayer);
-
-      // 2. Find all table_players entries for this name
-      const { data: tablePlayers, error: tpError } = await supabase
-        .from('table_players')
-        .select('*')
-        .eq('name', globalPlayer.name);
-
-      if (tpError) throw tpError;
-
-      if (tablePlayers && tablePlayers.length > 0) {
-        const tablePlayerIds = tablePlayers.map(tp => tp.id);
-        const tableIds = tablePlayers.map(tp => tp.table_id);
-
-        // 3. Fetch the tables they played at
-        const { data: tablesData } = await supabase
-          .from('tables')
-          .select('*')
-          .in('id', tableIds)
-          .order('created_at', { ascending: false });
-
-        if (tablesData) {
-          const mappedTables = tablesData.map(t => {
-            const tp = tablePlayers.find(tp => tp.table_id === t.id);
-            return { ...t, player_table_id: tp?.id || '' };
-          });
-          setTablesHistory(mappedTables);
-        }
-
-        // 4. Fetch all their transactions
-        const { data: txData } = await supabase
-          .from('transactions')
-          .select('*')
-          .in('player_id', tablePlayerIds);
-
-        if (txData) {
-          setTransactions(txData);
-        }
-      }
+      const data = await playerService.getPlayerProfile(clubId, id);
+      setPlayer(data.player);
+      setTablesHistory(data.tablesHistory);
+      setTransactions(data.transactions);
     } catch (error) {
       console.error('Error fetching player profile:', error);
     } finally {
@@ -89,38 +49,38 @@ export default function PlayerProfile() {
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto">
-      <button className="btn btn-outline mb-6" onClick={() => navigate('/players')}>
+      <button className="btn btn-outline mb-6 desktop-only" onClick={() => navigate('/players')}>
         <ArrowLeft size={18} /> Voltar
       </button>
 
       <div className="glass-panel mb-8 border-t-4 border-t-primary">
         <h1 className="mb-2">{player.name}</h1>
-        <p className="text-muted">Membro desde {new Date(player.created_at).toLocaleDateString('pt-BR')}</p>
+        <p className="text-muted text-sm">Membro desde {new Date(player.created_at).toLocaleDateString('pt-BR')}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="glass-panel p-6 flex flex-col justify-center items-center text-center">
-          <TrendingDown className="text-warning mb-2" size={32} />
-          <p className="text-sm text-muted mb-1">Total Buy-ins</p>
-          <p className="text-2xl font-bold text-warning">R$ {totalBuyIn.toFixed(2)}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
+          <TrendingDown className="text-warning mb-2 animate-fade-in" size={28} />
+          <p className="text-xs md:text-sm text-muted mb-1">Total Buy-ins</p>
+          <p className="text-lg md:text-2xl font-bold text-warning">R$ {totalBuyIn.toFixed(2)}</p>
         </div>
         
-        <div className="glass-panel p-6 flex flex-col justify-center items-center text-center">
-          <TrendingUp className="text-success mb-2" size={32} />
-          <p className="text-sm text-muted mb-1">Total Cash-outs</p>
-          <p className="text-2xl font-bold text-success">R$ {totalCashOut.toFixed(2)}</p>
+        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
+          <TrendingUp className="text-success mb-2 animate-fade-in" size={28} />
+          <p className="text-xs md:text-sm text-muted mb-1">Total Cash-outs</p>
+          <p className="text-lg md:text-2xl font-bold text-success">R$ {totalCashOut.toFixed(2)}</p>
         </div>
 
-        <div className="glass-panel p-6 flex flex-col justify-center items-center text-center">
-          <Coffee className="text-danger mb-2" size={32} />
-          <p className="text-sm text-muted mb-1">Total Consumo</p>
-          <p className="text-2xl font-bold text-danger">R$ {totalConsumo.toFixed(2)}</p>
+        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
+          <Coffee className="text-danger mb-2 animate-fade-in" size={28} />
+          <p className="text-xs md:text-sm text-muted mb-1">Total Consumo</p>
+          <p className="text-lg md:text-2xl font-bold text-danger">R$ {totalConsumo.toFixed(2)}</p>
         </div>
 
-        <div className={`glass-panel p-6 flex flex-col justify-center items-center text-center border ${isPositive ? 'border-success bg-success bg-opacity-5' : isNegative ? 'border-danger bg-danger bg-opacity-5' : 'border-glass-border'}`}>
-          <DollarSign className={isPositive ? 'text-success mb-2' : isNegative ? 'text-danger mb-2' : 'text-muted mb-2'} size={32} />
-          <p className="text-sm text-muted mb-1">Saldo Final</p>
-          <p className={`text-3xl font-bold ${isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-white'}`}>
+        <div className={`glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center border ${isPositive ? 'border-success bg-success bg-opacity-5' : isNegative ? 'border-danger bg-danger bg-opacity-5' : 'border-glass-border'}`}>
+          <DollarSign className={isPositive ? 'text-success mb-2' : isNegative ? 'text-danger mb-2' : 'text-muted mb-2'} size={28} />
+          <p className="text-xs md:text-sm text-muted mb-1">Saldo Final</p>
+          <p className={`text-xl md:text-3xl font-bold ${isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-white'}`}>
             {isPositive ? '+' : ''}R$ {balance.toFixed(2)}
           </p>
         </div>

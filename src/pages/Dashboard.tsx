@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase';
 import type { Table } from '../types';
 import { Plus, Play, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useClub } from '../contexts/ClubContext';
+import { tableService } from '../services/tableService';
 
 export default function Dashboard() {
   const [tables, setTables] = useState<Table[]>([]);
@@ -10,14 +12,16 @@ export default function Dashboard() {
   const [isCreating, setIsCreating] = useState(false);
   const [newTableName, setNewTableName] = useState('');
   const navigate = useNavigate();
+  const { clubId } = useClub();
 
   useEffect(() => {
+    if (!clubId) return;
     fetchTables();
     
-    // Subscribe to realtime changes
+    // Subscribe to realtime changes (listens to postgres event triggers)
     const channel = supabase
       .channel('public:tables')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `club_id=eq.${clubId}` }, () => {
         fetchTables();
       })
       .subscribe();
@@ -25,17 +29,13 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [clubId]);
 
   async function fetchTables() {
+    if (!clubId) return;
     try {
-      const { data, error } = await supabase
-        .from('tables')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      setTables(data || []);
+      const data = await tableService.getTables(clubId);
+      setTables(data);
     } catch (error) {
       console.error('Error fetching tables:', error);
     } finally {
@@ -45,17 +45,10 @@ export default function Dashboard() {
 
   async function createTable(e: React.FormEvent) {
     e.preventDefault();
-    if (!newTableName.trim()) return;
+    if (!newTableName.trim() || !clubId) return;
 
     try {
-      const { data, error } = await supabase
-        .from('tables')
-        .insert([{ name: newTableName }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
+      const data = await tableService.createTable(clubId, newTableName);
       setIsCreating(false);
       setNewTableName('');
       navigate(`/table/${data.id}`);
@@ -66,12 +59,12 @@ export default function Dashboard() {
 
   return (
     <div className="container animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
-          <h1>Mesas de Cash Game</h1>
-          <p>Gerencie as mesas ativas e o fluxo de caixa.</p>
+          <h1 className="mb-1">Mesas de Cash Game</h1>
+          <p className="text-muted text-sm">Gerencie as mesas ativas e o fluxo de caixa.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsCreating(true)}>
+        <button className="btn btn-primary w-full md:w-auto" onClick={() => setIsCreating(true)}>
           <Plus size={20} /> Nova Mesa
         </button>
       </div>

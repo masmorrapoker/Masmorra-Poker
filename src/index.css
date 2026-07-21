@@ -453,3 +453,191 @@ p { color: var(--text-muted); line-height: 1.6; }
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ==========================================
+   Mobile-first Responsive Overrides
+   ========================================== */
+.desktop-only {
+  display: inherit;
+}
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block !important;
+  }
+  
+  /* Reset container margins/paddings on mobile to maximize horizontal space */
+  .container {
+    padding: 1rem 0.75rem !important;
+  }
+  
+  /* Responsive glass-panel padding */
+  .glass-panel {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+  
+  /* Prevent huge typography from breaking layouts */
+  h1 { font-size: 1.65rem !important; }
+  h2 { font-size: 1.3rem !important; }
+  h3 { font-size: 1.1rem !important; }
+  
+  /* Generous mobile-optimized touch buttons */
+  .btn {
+    min-height: 48px !important;
+    padding: 0.75rem 1.25rem !important;
+    font-size: 0.95rem !important;
+  }
+  .btn-lg {
+    min-height: 54px !important;
+    padding: 1rem 1.75rem !important;
+    font-size: 1.05rem !important;
+  }
+  
+  /* Input fields touch optimized */
+  .input {
+    min-height: 48px !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Button list adjustments on mobile */
+  .btn-outline, .btn-primary, .btn-success, .btn-danger, .btn-warning {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Safe Area Insets for Notch Devices */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Premium Floating Animations for SVGs */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes float-slow {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(1.5deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-float-slow {
+  animation: float-slow 6s ease-in-out infinite;
+}
+
+/* Layout & Positioning Utilities */
+.relative { position: relative; }
+.absolute { position: absolute; }
+.pointer-events-none { pointer-events: none; }
+.transform { transform: translate(0, 0); }
+.-translate-y-1\/2 { transform: translateY(-50%); }
+.top-1\/2 { top: 50%; }
+.blur-\[120px\] { filter: blur(120px); }
+.blur-\[100px\] { filter: blur(100px); }
+.z-10 { z-index: 10; }
+.select-none { user-select: none; }
+
+/* Login Page Specific Layout and Components */
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 40px;
+  background-color: #090d16;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .login-container {
+    padding: 32px 16px;
+    align-items: flex-start;
+  }
+}
+
+.login-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 80px;
+  align-items: center;
+  width: 100%;
+  max-width: 1100px;
+  position: relative;
+  z-index: 10;
+}
+
+@media (max-width: 1024px) {
+  .login-grid {
+    grid-template-columns: 1fr;
+    gap: 48px;
+  }
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 600px) {
+  .benefits-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+.login-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  position: relative;
+  margin-left: auto;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  .login-card {
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .login-card {
+    padding: 28px 24px;
+  }
+}
+
+.glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(120px);
+}
+
+
