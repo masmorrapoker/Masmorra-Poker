@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 
@@ -15,6 +15,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={22} /> },
     { path: '/relationship', label: 'Relacionamento', icon: <MessageSquare size={22} /> },
+    { path: '/analytics', label: 'Analytics', icon: <BarChart3 size={22} /> },
     { path: '/profile', label: 'Perfil', icon: <User size={22} /> },
     { path: '/settings', label: 'Ajustes', icon: <Settings size={22} /> },
   ];

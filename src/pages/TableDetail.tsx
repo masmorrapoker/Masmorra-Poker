@@ -7,6 +7,7 @@ import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
 import { playerService } from '../services/playerService';
+import { clubSettingsService } from '../services/clubSettingsService';
 import { formatMoney, formatDateTime, calculatePlayerBalance } from '../utils';
 
 export default function TableDetail() {
@@ -32,15 +33,7 @@ export default function TableDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isClosingTable, setIsClosingTable] = useState(false);
-
-  const CONSUMO_ITEMS = [
-    { name: 'Água', price: 0 },
-    { name: 'Água com gás', price: 0 },
-    { name: 'Coca-Cola', price: 0 },
-    { name: 'Coca-Cola Zero', price: 0 },
-    { name: 'Cerveja', price: beerPrice },
-    { name: 'Energético', price: energyPrice },
-  ];
+  const [consumoItems, setConsumoItems] = useState<any[]>([]);
 
   const handleQuickAdd = (val: number) => {
     setTxAmount(prev => {
@@ -54,6 +47,34 @@ export default function TableDetail() {
     if (id && clubId) {
       fetchTableData();
       fetchGlobalPlayers();
+      
+      // Load custom products from Supabase Settings
+      clubSettingsService.getSettings(clubId)
+        .then(settings => {
+          if (settings && Array.isArray(settings.custom_products) && settings.custom_products.length > 0) {
+            setConsumoItems(settings.custom_products.filter((p: any) => p.active !== false));
+          } else {
+            setConsumoItems([
+              { name: 'Água', price: 0 },
+              { name: 'Água com gás', price: 0 },
+              { name: 'Coca-Cola', price: 5.0 },
+              { name: 'Coca-Cola Zero', price: 5.0 },
+              { name: 'Cerveja', price: beerPrice },
+              { name: 'Energético', price: energyPrice },
+            ]);
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          setConsumoItems([
+            { name: 'Água', price: 0 },
+            { name: 'Água com gás', price: 0 },
+            { name: 'Coca-Cola', price: 5.0 },
+            { name: 'Coca-Cola Zero', price: 5.0 },
+            { name: 'Cerveja', price: beerPrice },
+            { name: 'Energético', price: energyPrice },
+          ]);
+        });
       
       const tablesSub = supabase
         .channel(`table_${id}`)
@@ -619,7 +640,7 @@ export default function TableDetail() {
             {transactionModal.type === 'consumo' ? (
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-3">
-                  {CONSUMO_ITEMS.map((item, idx) => (
+                  {consumoItems.map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => registerConsumo(item.name, item.price)}

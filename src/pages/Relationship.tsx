@@ -7,8 +7,9 @@ import {
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
 import { transactionService } from '../services/transactionService';
+import { clubSettingsService } from '../services/clubSettingsService';
 import { Link } from 'react-router-dom';
-import { LOCAL_STORAGE_KEYS, DEFAULT_CRM_TEMPLATES, INACTIVITY_DAYS_OPTIONS, MARKETING_TEMPLATE_LABELS } from '../constants';
+import { DEFAULT_CRM_TEMPLATES, INACTIVITY_DAYS_OPTIONS, MARKETING_TEMPLATE_LABELS } from '../constants';
 import { formatMoney, formatDate, formatPhone, getDaysSinceLastVisit, calculatePlayerBalance } from '../utils';
 
 interface PlayerCRMStats {
@@ -58,35 +59,39 @@ export default function Relationship() {
     }
   }, [clubId]);
 
-  // Load custom templates and settings from LocalStorage
-  const loadMarketingSettings = () => {
+  // Load custom templates and settings from Supabase
+  const loadMarketingSettings = async () => {
+    if (!clubId) return;
     try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.MARKETING_SETTINGS);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.inactiveDays) setInactiveDays(Number(parsed.inactiveDays));
-        if (parsed.clubName) setMarketingClubName(parsed.clubName);
-        if (parsed.template1) setTemplates(prev => ({ ...prev, template1: parsed.template1 }));
-        if (parsed.template2) setTemplates(prev => ({ ...prev, template2: parsed.template2 }));
-        if (parsed.template3) setTemplates(prev => ({ ...prev, template3: parsed.template3 }));
-        if (parsed.template4) setTemplates(prev => ({ ...prev, template4: parsed.template4 }));
+      const settings = await clubSettingsService.getSettings(clubId);
+      if (settings) {
+        if (settings.marketing_inactive_days) setInactiveDays(Number(settings.marketing_inactive_days));
+        if (settings.marketing_club_name) setMarketingClubName(settings.marketing_club_name);
+        
+        const tmpl = settings.marketing_templates || {};
+        setTemplates({
+          template1: tmpl.template1 || DEFAULT_CRM_TEMPLATES.template1,
+          template2: tmpl.template2 || DEFAULT_CRM_TEMPLATES.template2,
+          template3: tmpl.template3 || DEFAULT_CRM_TEMPLATES.template3,
+          template4: tmpl.template4 || DEFAULT_CRM_TEMPLATES.template4,
+        });
       }
     } catch(e) {
-      console.error('Error loading settings from local storage:', e);
+      console.error('Error loading settings from database:', e);
     }
   };
 
   // Save settings helper
-  const saveMarketingSettings = (newThreshold: number, newName: string, newTemplates: typeof templates) => {
+  const saveMarketingSettings = async (newThreshold: number, newName: string, newTemplates: typeof templates) => {
+    if (!clubId) return;
     try {
-      const toSave = {
-        inactiveDays: newThreshold,
-        clubName: newName,
-        ...newTemplates
-      };
-      localStorage.setItem(LOCAL_STORAGE_KEYS.MARKETING_SETTINGS, JSON.stringify(toSave));
+      await clubSettingsService.updateSettings(clubId, {
+        marketing_inactive_days: newThreshold,
+        marketing_club_name: newName,
+        marketing_templates: newTemplates
+      });
     } catch(e) {
-      console.error('Error saving settings:', e);
+      console.error('Error saving settings to database:', e);
     }
   };
 
@@ -257,21 +262,48 @@ export default function Relationship() {
         </div>
         
         {/* Module Sub-tabs */}
-        <div className="flex bg-card p-1 rounded-xl border border-glass-border w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 bg-black bg-opacity-35 p-1.5 rounded-xl border border-glass-border max-w-max">
           <button 
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'crm' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+            type="button"
+            style={{
+              background: activeTab === 'crm' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none'
+            }}
+            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'crm' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
+            }`}
             onClick={() => setActiveTab('crm')}
           >
             Fidelização (CRM)
           </button>
           <button 
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'templates' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+            type="button"
+            style={{
+              background: activeTab === 'templates' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none'
+            }}
+            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'templates' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
+            }`}
             onClick={() => setActiveTab('templates')}
           >
             Modelos de Mensagem
           </button>
           <button 
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeTab === 'config' ? 'bg-primary text-white' : 'text-muted hover:text-white'}`}
+            type="button"
+            style={{
+              background: activeTab === 'config' ? 'var(--color-primary, #3b82f6)' : 'transparent',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none'
+            }}
+            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'config' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
+            }`}
             onClick={() => setActiveTab('config')}
           >
             Ajustes

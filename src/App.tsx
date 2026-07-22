@@ -6,6 +6,7 @@ import PlayerProfile from './pages/PlayerProfile';
 import Relationship from './pages/Relationship';
 import Inicio from './pages/Inicio';
 import Settings from './pages/Settings';
+import Analytics from './pages/Analytics';
 import OperatorProfile from './pages/OperatorProfile';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -130,6 +131,14 @@ function MainApp() {
             !user ? <Navigate to="/login" replace /> : 
             clubError ? <ClubErrorView error={clubError} logout={logout} /> :
             <Layout><Relationship /></Layout>
+          } 
+        />
+        <Route 
+          path="/analytics" 
+          element={
+            !user ? <Navigate to="/login" replace /> : 
+            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
+            <Layout><Analytics /></Layout>
           } 
         />
         
