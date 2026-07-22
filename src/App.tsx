@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard';
 import TableDetail from './pages/TableDetail';
 import Players from './pages/Players';
 import PlayerProfile from './pages/PlayerProfile';
+import Relationship from './pages/Relationship';
 import Settings from './pages/Settings';
 import OperatorProfile from './pages/OperatorProfile';
 import Layout from './components/Layout';
@@ -111,6 +112,14 @@ function MainApp() {
             !user ? <Navigate to="/login" replace /> : 
             clubError ? <ClubErrorView error={clubError} logout={logout} /> :
             <Layout><PlayerProfile /></Layout>
+          } 
+        />
+        <Route 
+          path="/relationship" 
+          element={
+            !user ? <Navigate to="/login" replace /> : 
+            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
+            <Layout><Relationship /></Layout>
           } 
         />
         

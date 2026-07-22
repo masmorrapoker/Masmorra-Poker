@@ -16,15 +16,52 @@ export const playerService = {
     return data || [];
   },
 
-  async createPlayer(clubId: string, name: string): Promise<GlobalPlayer> {
+  async createPlayer(
+    clubId: string, 
+    name: string, 
+    phone: string | null = null, 
+    birth_date: string | null = null, 
+    notes: string | null = null
+  ): Promise<GlobalPlayer> {
     const { data, error } = await supabase
       .from('players')
-      .insert([{ name, club_id: clubId }])
+      .insert([{ 
+        name, 
+        club_id: clubId, 
+        phone: phone || null, 
+        birth_date: birth_date || null, 
+        notes: notes || null 
+      }])
       .select()
       .single();
 
     if (error) {
       console.error('Error creating player:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  async updatePlayer(
+    clubId: string, 
+    playerId: string, 
+    updates: { 
+      name?: string; 
+      phone?: string | null; 
+      birth_date?: string | null; 
+      notes?: string | null; 
+    }
+  ): Promise<GlobalPlayer> {
+    const { data, error } = await supabase
+      .from('players')
+      .update(updates)
+      .eq('id', playerId)
+      .eq('club_id', clubId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating player:', error);
       throw error;
     }
     return data;

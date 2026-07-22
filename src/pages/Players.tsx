@@ -13,7 +13,18 @@ export default function Players() {
   
   const [isAdding, setIsAdding] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerPhone, setNewPlayerPhone] = useState('');
+  const [newPlayerBirthDate, setNewPlayerBirthDate] = useState('');
+  const [newPlayerNotes, setNewPlayerNotes] = useState('');
   const { clubId } = useClub();
+
+  const handleCloseModal = () => {
+    setIsAdding(false);
+    setNewPlayerName('');
+    setNewPlayerPhone('');
+    setNewPlayerBirthDate('');
+    setNewPlayerNotes('');
+  };
 
   useEffect(() => {
     if (!clubId) return;
@@ -49,9 +60,14 @@ export default function Players() {
     if (!newPlayerName.trim() || !clubId) return;
 
     try {
-      await playerService.createPlayer(clubId, newPlayerName);
-      setIsAdding(false);
-      setNewPlayerName('');
+      await playerService.createPlayer(
+        clubId, 
+        newPlayerName, 
+        newPlayerPhone.trim() || null, 
+        newPlayerBirthDate || null, 
+        newPlayerNotes.trim() || null
+      );
+      handleCloseModal();
     } catch (error) {
       console.error('Error adding player:', error);
     }
@@ -129,25 +145,62 @@ export default function Players() {
 
       {isAdding && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
             <div className="modal-header">
               <h2>Cadastrar Novo Jogador</h2>
-              <button className="close-btn" onClick={() => setIsAdding(false)}>✕</button>
+              <button className="close-btn" onClick={handleCloseModal}>✕</button>
             </div>
             <form onSubmit={addPlayer}>
-              <div className="input-group">
-                <label>Nome do Jogador</label>
+              <div className="input-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="text-xs font-bold text-muted block mb-2">Nome do Jogador *</label>
                 <input 
                   type="text" 
-                  className="input text-lg py-3" 
+                  className="input text-base py-2.5 rounded-xl" 
                   placeholder="Nome completo ou apelido"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
+                  required
                   autoFocus
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label className="text-xs font-bold text-muted block mb-2">Telefone / WhatsApp (Opcional)</label>
+                  <input 
+                    type="text" 
+                    className="input text-base py-2.5 rounded-xl" 
+                    placeholder="(00) 00000-0000"
+                    value={newPlayerPhone}
+                    onChange={(e) => setNewPlayerPhone(e.target.value)}
+                  />
+                </div>
+                <div className="input-group" style={{ marginBottom: 0 }}>
+                  <label className="text-xs font-bold text-muted block mb-2">Data de Nascimento (Opcional)</label>
+                  <input 
+                    type="date" 
+                    className="input text-base py-2.5 rounded-xl" 
+                    value={newPlayerBirthDate}
+                    onChange={(e) => setNewPlayerBirthDate(e.target.value)}
+                    style={{ colorScheme: 'dark' }}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="text-xs font-bold text-muted block mb-2">Observações / Notas (Opcional)</label>
+                <textarea 
+                  className="input text-base py-2.5 rounded-xl resize-none" 
+                  placeholder="Informações adicionais do jogador (ex: prefere jogar PLO, cliente VIP)"
+                  value={newPlayerNotes}
+                  onChange={(e) => setNewPlayerNotes(e.target.value)}
+                  rows={3}
+                  style={{ height: 'auto' }}
+                />
+              </div>
+
               <div className="flex justify-end gap-4 mt-8">
-                <button type="button" className="btn btn-outline" onClick={() => setIsAdding(false)}>
+                <button type="button" className="btn btn-outline" onClick={handleCloseModal}>
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={!newPlayerName.trim()}>

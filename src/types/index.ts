@@ -12,6 +12,9 @@ export interface GlobalPlayer {
   id: string;
   name: string;
   created_at: string;
+  phone?: string | null;
+  birth_date?: string | null;
+  notes?: string | null;
 }
 
 export interface Player {

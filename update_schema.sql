@@ -31,6 +31,12 @@ CREATE POLICY "Allow public read access to logos" ON storage.objects
 
 DROP POLICY IF EXISTS "Allow public upload to logos" ON storage.objects;
 CREATE POLICY "Allow public upload to logos" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'logos');
+  FOR INSERT WITH CHECK (bucket_id = 'logos');-- 5. Adicionar novas colunas opcionais na tabela de Jogadores (players)
+ALTER TABLE public.players ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE public.players ADD COLUMN IF NOT EXISTS birth_date date;
+ALTER TABLE public.players ADD COLUMN IF NOT EXISTS notes text;
 
-
+-- 6. Adicionar novas colunas de configuração de marketing na tabela de Clubes (clubs)
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS marketing_inactive_days integer DEFAULT 30;
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS marketing_message_template text;
+ALTER TABLE public.clubs ADD COLUMN IF NOT EXISTS marketing_club_name text;

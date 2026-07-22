@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 
@@ -13,6 +13,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={22} /> },
+    { path: '/relationship', label: 'Relacionamento', icon: <MessageSquare size={22} /> },
     { path: '/profile', label: 'Perfil', icon: <User size={22} /> },
     { path: '/settings', label: 'Ajustes', icon: <Settings size={22} /> },
   ];
@@ -67,7 +68,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="p-4 border-t border-glass-border">
           <button
             onClick={logout}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-danger hover:bg-danger hover:bg-opacity-10 border border-transparent transition-all cursor-pointer active:scale-95 text-left"
+            className="flex items-center gap-3 w-full px-4 py-2.5 rounded-xl font-medium text-muted hover:text-danger hover:bg-danger hover:bg-opacity-10 border border-transparent transition-all cursor-pointer active:scale-95 text-left"
+            style={{ background: 'transparent' }}
           >
             <LogOut size={20} />
             <span>Sair do Clube</span>
@@ -95,11 +97,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="flex items-center gap-2">
-            <button
+            <button 
               onClick={logout}
-              className="text-danger p-2 bg-danger bg-opacity-5 rounded-xl border border-danger border-opacity-10 active:scale-95 transition-transform cursor-pointer flex items-center justify-center"
+              className="text-muted hover:text-danger p-2 hover:bg-danger hover:bg-opacity-10 rounded-xl border border-glass-border active:scale-95 transition-all cursor-pointer flex items-center justify-center"
               title="Sair"
-              style={{ width: '36px', height: '36px' }}
+              style={{ width: '36px', height: '36px', background: 'transparent' }}
             >
               <LogOut size={16} />
             </button>
