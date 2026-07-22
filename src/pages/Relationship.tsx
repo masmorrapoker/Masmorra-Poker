@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import type { GlobalPlayer, Transaction } from '../types';
 import { 
   Calendar, Phone, Search, Send, AlertCircle, 
@@ -7,7 +6,10 @@ import {
 } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
+import { transactionService } from '../services/transactionService';
 import { Link } from 'react-router-dom';
+import { LOCAL_STORAGE_KEYS, DEFAULT_CRM_TEMPLATES, INACTIVITY_DAYS_OPTIONS, MARKETING_TEMPLATE_LABELS } from '../constants';
+import { formatMoney, formatDate, formatPhone, getDaysSinceLastVisit, calculatePlayerBalance } from '../utils';
 
 interface PlayerCRMStats {
   player: GlobalPlayer;
@@ -33,12 +35,7 @@ export default function Relationship() {
   // Settings states
   const [inactiveDays, setInactiveDays] = useState(30);
   const [marketingClubName, setMarketingClubName] = useState(clubName || 'Masmorra Manager');
-  const [templates, setTemplates] = useState({
-    template1: "Olá, {{nome}}!\n\nSentimos sua falta. Percebemos que faz um tempinho que você não aparece por aqui.\n\nPara te ver novamente nas mesas, preparamos um bônus especial de 10% no seu próximo buy-in.\n\nEsperamos você!\n\n♠ {{nome_do_clube}}",
-    template2: "Olá, {{nome}}!\n\nNa sua próxima visita você ganha uma bebida por nossa conta.\n\nEsperamos você!\n\n♠ {{nome_do_clube}}",
-    template3: "Olá, {{nome}}!\n\nHoje teremos Cash Game a partir das 20h. Sua cadeira está te esperando!\n\nEsperamos você!\n\n♠ {{nome_do_clube}}",
-    template4: "Feliz aniversário, {{nome}}!\n\nComo presente do {{nome_do_clube}}, você ganhou um bônus especial para utilizar na sua próxima visita. Parabéns!\n\nEsperamos você!"
-  });
+  const [templates, setTemplates] = useState({ ...DEFAULT_CRM_TEMPLATES });
   const [activeTab, setActiveTab] = useState<'crm' | 'templates' | 'config'>('crm');
 
   // Filter States
@@ -64,7 +61,7 @@ export default function Relationship() {
   // Load custom templates and settings from LocalStorage
   const loadMarketingSettings = () => {
     try {
-      const saved = localStorage.getItem('masmorra_marketing_settings');
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.MARKETING_SETTINGS);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.inactiveDays) setInactiveDays(Number(parsed.inactiveDays));
@@ -87,7 +84,7 @@ export default function Relationship() {
         clubName: newName,
         ...newTemplates
       };
-      localStorage.setItem('masmorra_marketing_settings', JSON.stringify(toSave));
+      localStorage.setItem(LOCAL_STORAGE_KEYS.MARKETING_SETTINGS, JSON.stringify(toSave));
     } catch(e) {
       console.error('Error saving settings:', e);
     }
@@ -102,20 +99,13 @@ export default function Relationship() {
       const gPlayers = await playerService.getPlayers(clubId);
       setPlayers(gPlayers);
 
-
       // Fetch all table_players (sessions)
-      const { data: tpData } = await supabase
-        .from('table_players')
-        .select('*')
-        .eq('club_id', clubId);
-      setTablePlayers(tpData || []);
+      const tpData = await playerService.getAllTablePlayers(clubId);
+      setTablePlayers(tpData);
 
       // Fetch all transactions
-      const { data: txData } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('club_id', clubId);
-      setTransactions(txData || []);
+      const txData = await transactionService.getAllTransactions(clubId);
+      setTransactions(txData);
 
     } catch (error) {
       console.error('Error loading CRM Relationship data:', error);
@@ -146,11 +136,10 @@ export default function Relationship() {
     const sessions = tablePlayers.filter(tp => tp.name === p.name);
     const sessionIds = sessions.map(s => s.id);
     const playerTxs = transactions.filter(tx => sessionIds.includes(tx.player_id));
-
     const totalBuyIn = playerTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const totalCashOut = playerTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const totalConsumo = playerTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const balance = totalCashOut - totalBuyIn - totalConsumo;
+    const balance = calculatePlayerBalance(totalBuyIn, totalCashOut, totalConsumo);
 
     let lastVisitDate = 'Nunca';
     let daysSinceLastVisit = 9999; // High value for never visited players
@@ -158,8 +147,8 @@ export default function Relationship() {
     if (sessions.length > 0) {
       // Sort sessions newest to oldest
       sessions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      lastVisitDate = new Date(sessions[0].created_at).toLocaleDateString('pt-BR');
-      daysSinceLastVisit = Math.floor((Date.now() - new Date(sessions[0].created_at).getTime()) / (1000 * 60 * 60 * 24));
+      lastVisitDate = formatDate(sessions[0].created_at);
+      daysSinceLastVisit = getDaysSinceLastVisit(sessions[0].created_at);
     }
 
     let isBirthdayThisMonth = false;
@@ -251,10 +240,7 @@ export default function Relationship() {
   // Trigger WhatsApp Web URL redirect
   const handleSendWhatsApp = () => {
     if (!outreachPlayer || !outreachPlayer.player.phone) return;
-    let cleanedPhone = outreachPlayer.player.phone.replace(/\D/g, '');
-    if (cleanedPhone.length === 11 && !cleanedPhone.startsWith('55')) {
-      cleanedPhone = '55' + cleanedPhone;
-    }
+    const cleanedPhone = formatPhone(outreachPlayer.player.phone);
     const url = `https://wa.me/${cleanedPhone}?text=${encodeURIComponent(customizedMessage)}`;
     window.open(url, '_blank');
     setOutreachPlayer(null);
@@ -438,7 +424,7 @@ export default function Relationship() {
                             <div className="text-right hidden sm:block bg-black bg-opacity-35 py-1.5 px-3 rounded-lg text-xs">
                               <span className="text-muted block text-[9px] font-bold uppercase mb-0.5">Saldo Geral</span>
                               <span className={`font-bold ${item.balance > 0 ? 'text-success' : item.balance < 0 ? 'text-danger' : 'text-white'}`}>
-                                {item.balance > 0 ? '+' : ''}R$ {item.balance.toFixed(2)}
+                                {item.balance > 0 ? '+' : ''}{formatMoney(item.balance)}
                               </span>
                             </div>
                             
@@ -585,10 +571,9 @@ export default function Relationship() {
                     }}
                     style={{ colorScheme: 'dark' }}
                   >
-                    <option value="30">30 dias sem jogar</option>
-                    <option value="45">45 dias sem jogar</option>
-                    <option value="60">60 dias sem jogar</option>
-                    <option value="90">90 dias sem jogar</option>
+                    {INACTIVITY_DAYS_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </select>
                   <p className="text-[10px] text-muted mt-1" style={{ margin: '0.25rem 0 0 0' }}>
                     Jogadores que excederem esse limite de dias desde a última visita serão marcados com status "Inativo" no sistema.
@@ -643,12 +628,7 @@ export default function Relationship() {
               <div className="input-group" style={{ marginBottom: 0 }}>
                 <label className="text-xs font-bold text-muted block mb-2">Selecione o Modelo de Abordagem</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {[
-                    { key: 'template1', label: 'Falta' },
-                    { key: 'template2', label: 'Copa' },
-                    { key: 'template3', label: 'Aviso Cash' },
-                    { key: 'template4', label: 'Parabéns' }
-                  ].map((tab) => (
+                  {MARKETING_TEMPLATE_LABELS.map((tab) => (
                     <button
                       key={tab.key}
                       type="button"

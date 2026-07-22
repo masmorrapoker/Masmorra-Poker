@@ -48,5 +48,18 @@ export const transactionService = {
       console.error('Error deleting transaction:', error);
       throw error;
     }
+  },
+
+  async getAllTransactions(clubId: string): Promise<Transaction[]> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('club_id', clubId);
+
+    if (error) {
+      console.error('Error fetching all club transactions:', error);
+      throw error;
+    }
+    return data || [];
   }
 };

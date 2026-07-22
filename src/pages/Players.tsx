@@ -5,6 +5,7 @@ import { Plus, Users, Search, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
+import { formatDate } from '../utils';
 
 export default function Players() {
   const [players, setPlayers] = useState<GlobalPlayer[]>([]);
@@ -131,7 +132,7 @@ export default function Players() {
                 >
                   <div className="flex flex-col">
                     <span className="font-bold text-lg mb-1 group-hover:text-primary transition-colors">{player.name}</span>
-                    <span className="text-xs text-muted">Desde {new Date(player.created_at).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-xs text-muted">Desde {formatDate(player.created_at)}</span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-white bg-opacity-5 flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                     <ChevronRight size={18} />

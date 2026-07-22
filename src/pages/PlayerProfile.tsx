@@ -4,6 +4,8 @@ import type { GlobalPlayer, Table, Transaction } from '../types';
 import { ArrowLeft, History, DollarSign, TrendingUp, TrendingDown, Coffee, Calendar, Phone, Edit3 } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
+import { formatMoney, formatDate, formatPhone, calculatePlayerBalance } from '../utils';
+import { LOCAL_STORAGE_KEYS } from '../constants';
 
 export default function PlayerProfile() {
   const { id } = useParams<{ id: string }>();
@@ -77,7 +79,7 @@ export default function PlayerProfile() {
   const totalCashOut = transactions.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
   const totalConsumo = transactions.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
   
-  const balance = totalCashOut - totalBuyIn - totalConsumo;
+  const balance = calculatePlayerBalance(totalBuyIn, totalCashOut, totalConsumo);
   const isPositive = balance > 0;
   const isNegative = balance < 0;
 
@@ -91,9 +93,9 @@ export default function PlayerProfile() {
         <div>
           <h1 className="mb-2">{player.name}</h1>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-sm text-muted">
-            <span>Membro desde {new Date(player.created_at).toLocaleDateString('pt-BR')}</span>
+            <span>Membro desde {formatDate(player.created_at)}</span>
             {player.phone && <span>• 📞 {player.phone}</span>}
-            {player.birth_date && <span>• 🎂 Aniversário: {new Date(player.birth_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>}
+            {player.birth_date && <span>• 🎂 Aniversário: {formatDate(player.birth_date + 'T12:00:00')}</span>}
           </div>
           {player.notes && (
             <div className="mt-4 p-3 bg-black bg-opacity-35 rounded-xl text-sm border border-glass-border">
@@ -111,26 +113,26 @@ export default function PlayerProfile() {
         <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
           <TrendingDown className="text-warning mb-2 animate-fade-in" size={28} />
           <p className="text-xs md:text-sm text-muted mb-1">Total Buy-ins</p>
-          <p className="text-lg md:text-2xl font-bold text-warning">R$ {totalBuyIn.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-bold text-warning">{formatMoney(totalBuyIn)}</p>
         </div>
         
         <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
           <TrendingUp className="text-success mb-2 animate-fade-in" size={28} />
           <p className="text-xs md:text-sm text-muted mb-1">Total Cash-outs</p>
-          <p className="text-lg md:text-2xl font-bold text-success">R$ {totalCashOut.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-bold text-success">{formatMoney(totalCashOut)}</p>
         </div>
 
         <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
           <Coffee className="text-danger mb-2 animate-fade-in" size={28} />
           <p className="text-xs md:text-sm text-muted mb-1">Total Consumo</p>
-          <p className="text-lg md:text-2xl font-bold text-danger">R$ {totalConsumo.toFixed(2)}</p>
+          <p className="text-lg md:text-2xl font-bold text-danger">{formatMoney(totalConsumo)}</p>
         </div>
 
         <div className={`glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center border ${isPositive ? 'border-success bg-success bg-opacity-5' : isNegative ? 'border-danger bg-danger bg-opacity-5' : 'border-glass-border'}`}>
           <DollarSign className={isPositive ? 'text-success mb-2' : isNegative ? 'text-danger mb-2' : 'text-muted mb-2'} size={28} />
           <p className="text-xs md:text-sm text-muted mb-1">Saldo Final</p>
           <p className={`text-xl md:text-3xl font-bold ${isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-white'}`}>
-            {isPositive ? '+' : ''}R$ {balance.toFixed(2)}
+            {isPositive ? '+' : ''}{formatMoney(balance)}
           </p>
         </div>
       </div>
@@ -221,7 +223,7 @@ export default function PlayerProfile() {
                     onClick={() => {
                       let marketingName = clubName || 'Masmorra Manager';
                       try {
-                        const saved = localStorage.getItem('masmorra_marketing_settings');
+                        const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.MARKETING_SETTINGS);
                         if (saved) {
                           const parsed = JSON.parse(saved);
                           if (parsed.clubName) marketingName = parsed.clubName;
@@ -229,10 +231,7 @@ export default function PlayerProfile() {
                       } catch(e) {}
                       
                       const text = `Olá, ${player.name}!\n\nSentimos sua falta. Percebemos que faz um tempinho que você não aparece por aqui.\n\nPara te ver novamente nas mesas, preparamos um bônus especial de 10% no seu próximo buy-in.\n\nEsperamos você!\n\n♠ ${marketingName}`;
-                      let cleanedPhone = (player.phone || '').replace(/\D/g, '');
-                      if (cleanedPhone.length === 11 && !cleanedPhone.startsWith('55')) {
-                        cleanedPhone = '55' + cleanedPhone;
-                      }
+                      const cleanedPhone = formatPhone(player.phone);
                       window.open(`https://wa.me/${cleanedPhone}?text=${encodeURIComponent(text)}`, '_blank');
                     }}
                     className="btn btn-warning flex items-center gap-2 w-full md:w-auto font-bold text-xs"
@@ -266,7 +265,7 @@ export default function PlayerProfile() {
               const tBuyIn = tableTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
               const tCashOut = tableTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
               const tConsumo = tableTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-              const tBalance = tCashOut - tBuyIn - tConsumo;
+              const tBalance = calculatePlayerBalance(tBuyIn, tCashOut, tConsumo);
               
               return (
                 <div key={t.id} className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex flex-col md:flex-row justify-between md:items-center gap-4 transition-colors hover:bg-opacity-60 cursor-pointer" onClick={() => navigate(`/table/${t.id}`)}>
@@ -277,7 +276,7 @@ export default function PlayerProfile() {
                         {t.status === 'active' ? 'Ativa' : 'Fechada'}
                       </span>
                       <span className="text-sm text-muted">
-                        {new Date(t.created_at).toLocaleDateString('pt-BR')}
+                        {formatDate(t.created_at)}
                       </span>
                     </div>
                   </div>
@@ -285,7 +284,7 @@ export default function PlayerProfile() {
                     <div className="text-center">
                       <p className="text-muted text-xs mb-1">Resultado</p>
                       <p className={`font-bold ${tBalance > 0 ? 'text-success' : tBalance < 0 ? 'text-danger' : 'text-white'}`}>
-                        {tBalance > 0 ? '+' : ''}R$ {tBalance.toFixed(2)}
+                        {tBalance > 0 ? '+' : ''}{formatMoney(tBalance)}
                       </p>
                     </div>
                   </div>

@@ -122,5 +122,18 @@ export const playerService = {
     }
 
     return { player, tablesHistory, transactions };
+  },
+
+  async getAllTablePlayers(clubId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('table_players')
+      .select('*')
+      .eq('club_id', clubId);
+
+    if (error) {
+      console.error('Error fetching all table players:', error);
+      throw error;
+    }
+    return data || [];
   }
 };

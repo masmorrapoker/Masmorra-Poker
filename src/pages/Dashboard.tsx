@@ -5,6 +5,7 @@ import { Plus, Play, Info } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
+import { formatDateTime } from '../utils';
 
 export default function Dashboard() {
   const [tables, setTables] = useState<Table[]>([]);
@@ -99,9 +100,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-sm text-muted">
                   {table.status === 'active' ? 'Aberta em: ' : 'Fechada em: '}
-                  {new Date(table.closed_at || table.created_at).toLocaleString('pt-BR', {
-                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                  })}
+                  {formatDateTime(table.closed_at || table.created_at)}
                 </div>
               </div>
               <button 

@@ -7,6 +7,7 @@ import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
 import { playerService } from '../services/playerService';
+import { formatMoney, formatDateTime, calculatePlayerBalance } from '../utils';
 
 export default function TableDetail() {
   const { id } = useParams<{ id: string }>();
@@ -194,7 +195,7 @@ export default function TableDetail() {
     const buyIn = playerTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const cashOut = playerTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const consumo = playerTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const balance = cashOut - buyIn - consumo;
+    const balance = calculatePlayerBalance(buyIn, cashOut, consumo);
     return { player, buyIn, cashOut, consumo, balance };
   });
 
@@ -228,7 +229,7 @@ export default function TableDetail() {
              </span>
              {table.status === 'closed' && table.closed_at && (
                <span className="text-sm text-muted">
-                 Fechada em: {new Date(table.closed_at).toLocaleString('pt-BR')}
+                 Fechada em: {formatDateTime(table.closed_at)}
                </span>
              )}
           </div>
@@ -402,7 +403,7 @@ export default function TableDetail() {
                       
                       <div className="flex items-center gap-4">
                         <span className={`text-sm md:text-base font-extrabold ${isBuyIn ? 'text-warning' : isCashOut ? 'text-success' : 'text-danger'}`}>
-                          {isBuyIn ? '+' : isCashOut ? '-' : ''} R$ {Number(tx.amount).toFixed(2)}
+                          {isBuyIn ? '+' : isCashOut ? '-' : ''} {formatMoney(tx.amount)}
                         </span>
                         
                         <button 
@@ -441,11 +442,11 @@ export default function TableDetail() {
                     {playerSummaries.map(summary => (
                       <tr key={summary.player.id} className="border-b border-white border-opacity-5">
                         <td className="p-3 font-bold">{summary.player.name}</td>
-                        <td className="p-3">R$ {summary.buyIn.toFixed(2)}</td>
-                        <td className="p-3">R$ {summary.cashOut.toFixed(2)}</td>
-                        <td className="p-3">R$ {summary.consumo.toFixed(2)}</td>
+                        <td className="p-3">{formatMoney(summary.buyIn)}</td>
+                        <td className="p-3">{formatMoney(summary.cashOut)}</td>
+                        <td className="p-3">{formatMoney(summary.consumo)}</td>
                         <td className={`p-3 text-right font-bold ${summary.balance > 0 ? 'text-success' : summary.balance < 0 ? 'text-danger' : ''}`}>
-                          R$ {summary.balance.toFixed(2)}
+                          {formatMoney(summary.balance)}
                         </td>
                       </tr>
                     ))}
@@ -460,21 +461,21 @@ export default function TableDetail() {
                     <div className="flex justify-between items-center mb-3">
                       <span className="font-bold text-base text-white">{summary.player.name}</span>
                       <span className={`font-extrabold text-sm px-2.5 py-1 rounded-lg ${summary.balance > 0 ? 'bg-success bg-opacity-10 text-success' : summary.balance < 0 ? 'bg-danger bg-opacity-10 text-danger' : 'bg-white bg-opacity-5 text-white'}`}>
-                        {summary.balance > 0 ? '+' : ''}R$ {summary.balance.toFixed(2)}
+                        {summary.balance > 0 ? '+' : ''}{formatMoney(summary.balance)}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs mt-2 pt-2 border-t border-white border-opacity-5">
                       <div>
                         <p className="text-muted mb-0.5">Buy-in</p>
-                        <p className="font-semibold text-warning">R$ {summary.buyIn.toFixed(2)}</p>
+                        <p className="font-semibold text-warning">{formatMoney(summary.buyIn)}</p>
                       </div>
                       <div>
                         <p className="text-muted mb-0.5">Cash-out</p>
-                        <p className="font-semibold text-success">R$ {summary.cashOut.toFixed(2)}</p>
+                        <p className="font-semibold text-success">{formatMoney(summary.cashOut)}</p>
                       </div>
                       <div>
                         <p className="text-muted mb-0.5">Consumo</p>
-                        <p className="font-semibold text-danger">R$ {summary.consumo.toFixed(2)}</p>
+                        <p className="font-semibold text-danger">{formatMoney(summary.consumo)}</p>
                       </div>
                     </div>
                   </div>
@@ -484,19 +485,19 @@ export default function TableDetail() {
               <div className="mt-6 pt-4 border-t border-white border-opacity-10 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-muted">Total Buy-ins</p>
-                  <p className="text-xl text-warning">R$ {totalBuyIn.toFixed(2)}</p>
+                  <p className="text-xl text-warning">{formatMoney(totalBuyIn)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted">Total Cash-outs</p>
-                  <p className="text-xl text-success">R$ {totalCashOut.toFixed(2)}</p>
+                  <p className="text-xl text-success">{formatMoney(totalCashOut)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted">Total Consumo</p>
-                  <p className="text-xl text-danger">R$ {totalConsumo.toFixed(2)}</p>
+                  <p className="text-xl text-danger">{formatMoney(totalConsumo)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-muted">Lucro da Mesa (Rake)</p>
-                  <p className="text-xl text-primary font-bold">R$ {rakeTableTotal.toFixed(2)}</p>
+                  <p className="text-xl text-primary font-bold">{formatMoney(rakeTableTotal)}</p>
                 </div>
               </div>
             </div>
@@ -511,23 +512,23 @@ export default function TableDetail() {
             <div className="space-y-4">
               <div className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex flex-col justify-center">
                 <p className="text-xs text-muted mb-1 font-semibold">Total de Entradas (Buy-ins)</p>
-                <p className="text-xl font-extrabold text-warning">R$ {totalBuyIn.toFixed(2)}</p>
+                <p className="text-xl font-extrabold text-warning">{formatMoney(totalBuyIn)}</p>
               </div>
 
               <div className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex flex-col justify-center">
                 <p className="text-xs text-muted mb-1 font-semibold">Total de Saídas (Cash-outs)</p>
-                <p className="text-xl font-extrabold text-success">R$ {totalCashOut.toFixed(2)}</p>
+                <p className="text-xl font-extrabold text-success">{formatMoney(totalCashOut)}</p>
               </div>
 
               <div className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex flex-col justify-center">
                 <p className="text-xs text-muted mb-1 font-semibold">Total de Consumo</p>
-                <p className="text-xl font-extrabold text-danger">R$ {totalConsumo.toFixed(2)}</p>
+                <p className="text-xl font-extrabold text-danger">{formatMoney(totalConsumo)}</p>
               </div>
 
               <div className={`p-4 rounded-xl border flex flex-col justify-center ${rakeTableTotal >= 0 ? 'border-primary bg-primary bg-opacity-5' : 'border-danger bg-danger bg-opacity-5'}`}>
                 <p className="text-xs text-muted mb-1 font-semibold">Lucro Estimado (Rake)</p>
                 <p className={`text-2xl font-black ${rakeTableTotal >= 0 ? 'text-primary' : 'text-danger'}`}>
-                  R$ {rakeTableTotal.toFixed(2)}
+                  {formatMoney(rakeTableTotal)}
                 </p>
                 <p className="text-[10px] text-muted mt-1 leading-normal">
                   {rakeTableTotal >= 0 
