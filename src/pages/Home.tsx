@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Check, Star, Menu, X, TrendingDown, Coffee, 
-  RefreshCw, CheckCircle, FileText, MessageSquare, 
+import {
+  Check, Star, Menu, X, TrendingDown, Coffee,
+  RefreshCw, CheckCircle, FileText, MessageSquare,
   HelpCircle, Activity, Landmark
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function Home() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -105,10 +105,10 @@ export default function Home() {
       {/* Navbar */}
       <header className={`lp-navbar ${scrolled ? 'lp-navbar-scrolled' : ''}`}>
         <div className="flex items-center gap-2 font-bold text-white text-lg">
-          <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '36px', height: '36px' }} />
+          <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '70px', height: '70px' }} />
           <span>Masmorra Manager</span>
         </div>
-        
+
         <nav className="lp-nav-links">
           <a href="#recursos" className="lp-nav-link">Recursos</a>
           <a href="#como-funciona" className="lp-nav-link">Como Funciona</a>
@@ -164,7 +164,7 @@ export default function Home() {
             <p className="lp-hero-subtitle">
               Controle mesas, jogadores, buy-ins, cash-outs, consumo de bar e o fechamento de caixa em uma única plataforma web moderna e em tempo real.
             </p>
-            
+
             <div className="lp-hero-bullets">
               <span className="lp-hero-bullet">
                 <Check size={16} className="lp-hero-bullet-check" /> Sem papel
@@ -213,7 +213,7 @@ export default function Home() {
                   </div>
                   <span className="badge badge-active text-[10px] px-2 py-0.5">Mesa Ativa</span>
                 </div>
-                
+
                 {/* Simulated Player Rows */}
                 <div className="space-y-2 mb-6">
                   <div className="lp-player-row">
@@ -530,7 +530,7 @@ export default function Home() {
                 <span className="text-xs font-bold text-muted uppercase">Volume de Caixa (7 dias)</span>
               </div>
             </div>
-            
+
             <div className="h-48 w-full relative flex items-end">
               <svg className="w-full h-full" viewBox="0 0 600 150" preserveAspectRatio="none">
                 <defs>
@@ -675,7 +675,7 @@ export default function Home() {
               <span className="text-4xl font-black text-white">R$ 99</span>
               <span className="text-xs text-muted font-semibold">/ mês</span>
             </div>
-            
+
             <hr className="border-glass-border my-6" />
 
             <ul className="space-y-4 text-left max-w-xs mx-auto mb-8 text-xs font-semibold text-white">
