@@ -1480,8 +1480,12 @@ body {
 /* Fixed Widths & Heights Utilities */
 .w-6 { width: 24px !important; }
 .h-6 { height: 24px !important; }
+.w-7 { width: 28px !important; }
+.h-7 { height: 28px !important; }
 .w-8 { width: 32px !important; }
 .h-8 { height: 32px !important; }
+.w-9 { width: 36px !important; }
+.h-9 { height: 36px !important; }
 .w-10 { width: 40px !important; }
 .h-10 { height: 40px !important; }
 .w-16 { width: 64px !important; }
@@ -1561,5 +1565,46 @@ body {
 @media (max-width: 767px) {
   .hidden { display: none !important; }
   .md\:flex { display: none !important; }
+}
+
+/* Micro-branding logo effects */
+.lp-loading-logo {
+  animation: spin-slow 8s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.3));
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Subtle glow pulse for logo images in dashboard/login card */
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.15));
+  }
+  50% {
+    opacity: 0.95;
+    filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.45));
+  }
+}
+
+/* Hover glow for logos */
+img[src*="logo.png"] {
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+img[src*="logo.png"]:hover {
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)) brightness(1.1);
+  transform: scale(1.05);
 }
 

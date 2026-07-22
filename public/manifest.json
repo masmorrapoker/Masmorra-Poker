@@ -1,0 +1,17 @@
+{
+  "short_name": "Masmorra Manager",
+  "name": "Masmorra Manager - Gestão de Clubes de Poker",
+  "icons": [
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/dashboard",
+  "background_color": "#090d16",
+  "theme_color": "#3b82f6",
+  "display": "standalone",
+  "orientation": "portrait"
+}

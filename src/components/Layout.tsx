@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Spade, Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 
@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { clubName, clubLogo } = useClub();
+  const { clubName } = useClub();
 
   const navItems = [
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
@@ -34,26 +34,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar Desktop */}
       <aside className="hidden md:flex flex-col w-64 bg-card border-r border-glass-border">
         <div className="p-6 border-b border-glass-border flex flex-col gap-4 text-left">
-          <Link to="/dashboard" className="flex items-center gap-3 text-xl font-bold text-white no-underline">
-            {clubLogo ? (
-              <img 
-                src={clubLogo} 
-                alt="Logo" 
-                className="w-8 h-8 rounded-full object-cover border border-glass-border" 
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = 'https://placehold.co/50?text=Logo';
-                }}
-              />
-            ) : (
-              <Spade className="text-primary" size={28} />
-            )}
-            <span className="truncate">♠ {clubName || 'Masmorra Poker'}</span>
-          </Link>
-          <div className="text-[11px] text-muted truncate max-w-full font-medium" title={user?.email || ''}>
-            {user?.email}
+          <div className="flex items-center gap-3">
+            <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '50px', height: '50px' }} />
+            <span className="text-lg font-bold text-white tracking-tight uppercase" style={{ letterSpacing: '0.05em' }}>Masmorra Manager</span>
+          </div>
+          <div className="flex flex-col gap-1 mt-1 border-t border-glass-border pt-3">
+            <span className="text-xs font-semibold text-white truncate">{clubName || 'Sem Clube'}</span>
+            <span className="text-[10px] text-muted truncate font-medium" title={user?.email || ''}>{user?.email}</span>
           </div>
         </div>
-        
+
         <nav className="flex-1 px-4 py-4 space-y-2">
           {navItems.map((item) => {
             const active = isTabActive(item.path);
@@ -61,11 +51,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all no-underline ${
-                  active
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all no-underline ${active
                     ? 'bg-primary bg-opacity-20 text-primary border-l-4 border-primary'
                     : 'text-muted hover:bg-white hover:bg-opacity-5 hover:text-white border-l-4 border-transparent'
-                }`}
+                  }`}
               >
                 {item.icon}
                 {item.label}
@@ -76,7 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar Footer Logout */}
         <div className="p-4 border-t border-glass-border">
-          <button 
+          <button
             onClick={logout}
             className="flex items-center gap-3 w-full px-4 py-3 rounded-xl font-medium text-danger hover:bg-danger hover:bg-opacity-10 border border-transparent transition-all cursor-pointer active:scale-95 text-left"
           >
@@ -91,33 +80,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Mobile Header (Top) */}
         <header className="md:hidden flex items-center justify-between p-4 bg-card border-b border-glass-border fixed inset-x-0 top-0 z-50 h-16 backdrop-blur-lg">
           {isSubPage ? (
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="text-white flex items-center gap-1.5 px-3 py-1.5 bg-white bg-opacity-5 hover:bg-opacity-10 border border-glass-border rounded-xl active:scale-95 transition-transform cursor-pointer"
             >
               <ArrowLeft size={18} />
               <span className="text-sm font-semibold">Voltar</span>
             </button>
           ) : (
-            <Link to="/dashboard" className="flex items-center gap-2 text-xl font-extrabold text-white no-underline">
-              {clubLogo ? (
-                <img 
-                  src={clubLogo} 
-                  alt="Logo" 
-                  className="w-6 h-6 rounded-full object-cover border border-glass-border" 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://placehold.co/50?text=Logo';
-                  }}
-                />
-              ) : (
-                <Spade className="text-primary" size={22} />
-              )}
-              <span className="truncate max-w-[140px]">♠ {clubName || 'Masmorra'}</span>
+            <Link to="/dashboard" className="flex items-center gap-2.5 text-lg font-bold text-white no-underline">
+              <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '28px', height: '28px' }} />
+              <span className="truncate max-w-[140px]">{clubName || 'Masmorra'}</span>
             </Link>
           )}
-          
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={logout}
               className="text-danger p-2 bg-danger bg-opacity-5 rounded-xl border border-danger border-opacity-10 active:scale-95 transition-transform cursor-pointer flex items-center justify-center"
               title="Sair"
@@ -143,11 +121,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all no-underline ${
-                  active
+                className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all no-underline ${active
                     ? 'text-primary'
                     : 'text-muted'
-                }`}
+                  }`}
               >
                 <div className={`p-1.5 rounded-xl transition-colors ${active ? 'bg-primary bg-opacity-10' : ''}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
                   {item.icon}

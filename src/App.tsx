@@ -10,7 +10,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider, useClub } from './contexts/ClubContext';
-import { Spade, AlertCircle, LogOut } from 'lucide-react';
+import { AlertCircle, LogOut } from 'lucide-react';
 
 function ClubErrorView({ error, logout }: { error: string; logout: () => Promise<void> }) {
   return (
@@ -50,13 +50,13 @@ function MainApp() {
         <div className="absolute bottom-[20%] right-[20%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }} />
         
         <div className="flex flex-col items-center gap-6 relative z-10 animate-fade-in">
-          {/* Glowing rotating Spade logo */}
-          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-xl shadow-primary/20 animate-float" style={{ padding: '16px' }}>
-            <Spade size={42} className="text-white" style={{ fill: 'currentColor' }} />
+          {/* Glowing rotating brand logo */}
+          <div className="flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-xl shadow-primary/20" style={{ padding: '16px' }}>
+            <img src="/logo.png?v=2" alt="Logo" className="w-16 h-16 object-contain lp-loading-logo" />
           </div>
           <div className="text-center">
             <h2 className="text-xl font-bold text-white mb-2" style={{ margin: 0 }}>Masmorra Manager</h2>
-            <p className="text-sm text-muted" style={{ margin: 0 }}>Autenticando e carregando clube...</p>
+            <p className="text-sm text-muted" style={{ margin: 0 }}>Carregando fortress...</p>
           </div>
           <div className="spinner mt-2" style={{ width: '28px', height: '28px', borderWidth: '3px' }}></div>
         </div>

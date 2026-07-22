@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Spade, Check, Star, Menu, X, TrendingDown, Coffee, 
+  Check, Star, Menu, X, TrendingDown, Coffee, 
   RefreshCw, CheckCircle, FileText, MessageSquare, 
   HelpCircle, Activity, Landmark
 } from 'lucide-react';
@@ -105,7 +105,7 @@ export default function Home() {
       {/* Navbar */}
       <header className={`lp-navbar ${scrolled ? 'lp-navbar-scrolled' : ''}`}>
         <div className="flex items-center gap-2 font-bold text-white text-lg">
-          <Spade size={22} className="text-primary" />
+          <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '36px', height: '36px' }} />
           <span>Masmorra Manager</span>
         </div>
         
@@ -272,9 +272,9 @@ export default function Home() {
         <div className="lp-trust-container">
           <p className="lp-trust-title">Clubes que já estão profissionalizando sua operação</p>
           <div className="lp-trust-list">
-            <span className="lp-trust-item">♠ Masmorra Poker Club</span>
-            <span className="lp-trust-item">♥ Caramelo's Poker</span>
-            <span className="lp-trust-item">♣ Holy Cross Poker Club</span>
+            <span className="lp-trust-item">Masmorra Manager</span>
+            <span className="lp-trust-item">Caramelo's Poker</span>
+            <span className="lp-trust-item">Holy Cross Poker Club</span>
           </div>
         </div>
       </section>
@@ -633,7 +633,7 @@ export default function Home() {
               "O fechamento de caixa ficou muito mais rápido. Não usamos mais papel na mesa e agora eu controlo as movimentações mesmo viajando."
             </p>
             <p className="text-xs font-bold text-white mb-1">Gabriel Silveira</p>
-            <p className="text-[10px] text-muted">Masmorra Poker Club</p>
+            <p className="text-[10px] text-muted">Masmorra Manager</p>
           </div>
 
           <div className="lp-dep-card">
@@ -757,7 +757,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 text-left">
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 font-bold text-white text-lg mb-4">
-              <Spade size={22} className="text-primary" />
+              <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '36px', height: '36px' }} />
               <span>Masmorra Manager</span>
             </div>
             <p className="text-xs text-muted max-w-sm leading-relaxed mb-4">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Spade, Mail, Lock, LogIn, AlertCircle, Check } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle, Check } from 'lucide-react';
 import { authService } from '../services/authService';
 
 export default function Login() {
@@ -38,11 +38,9 @@ export default function Login() {
         {/* Left Column: Branding, Benefits & Poker Graphics */}
         <div className="flex flex-col animate-fade-in text-left" style={{ gap: '2rem' }}>
           {/* Logo Brand */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center rounded-xl text-white shadow-lg" style={{ width: '48px', height: '48px', background: 'linear-gradient(135deg, var(--primary), var(--primary-hover))', padding: '10px', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.25)' }}>
-              <Spade size={26} className="text-white" style={{ fill: 'currentColor' }} />
-            </div>
-            <span className="text-xl font-bold text-white tracking-tight uppercase" style={{ letterSpacing: '0.05em' }}>Masmorra Poker Club</span>
+          <div className="flex items-center gap-3">
+            <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '48px', height: '48px' }} />
+            <span className="text-xl font-bold text-white tracking-tight uppercase" style={{ letterSpacing: '0.05em' }}>Masmorra Manager</span>
           </div>
 
           {/* Title Area */}
@@ -51,7 +49,7 @@ export default function Login() {
               Masmorra Manager
             </h1>
             <p className="text-base sm:text-lg text-muted font-medium leading-relaxed" style={{ margin: 0 }}>
-              O sistema completo para gerenciamento de clubes de poker.
+              Gestão e controle financeiro integrado para clubes de poker.
             </p>
           </div>
 
@@ -143,18 +141,17 @@ export default function Login() {
             </svg>
           </div>
         </div>
-
-        {/* Right Column: Premium Login Card */}
         <div className="w-full flex flex-col items-center justify-center animate-fade-in">
           <div className="login-card">
             
             {/* Ambient edge glow on card */}
             <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ border: '1px solid rgba(59, 130, 246, 0.1)' }} />
 
-            <div className="mb-6 text-left">
-              <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight mb-2" style={{ margin: 0 }}>Área de Acesso</h2>
-              <p className="text-xs md:text-sm text-muted" style={{ marginTop: '0.5rem', marginBottom: 0 }}>
-                Insira suas credenciais cadastradas pelo administrador do seu clube para entrar.
+            <div className="flex flex-col items-center mb-8">
+              <img src="/logo.png?v=2" alt="Masmorra Manager Logo" className="object-contain mb-4 animate-pulse-slow" style={{ width: '64px', height: '64px' }} />
+              <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight text-center" style={{ margin: 0 }}>Masmorra Manager</h2>
+              <p className="text-xs text-muted text-center mt-2" style={{ margin: 0 }}>
+                Insira suas credenciais de operador para entrar
               </p>
             </div>
 
