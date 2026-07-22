@@ -4,6 +4,7 @@ import TableDetail from './pages/TableDetail';
 import Players from './pages/Players';
 import PlayerProfile from './pages/PlayerProfile';
 import Relationship from './pages/Relationship';
+import Inicio from './pages/Inicio';
 import Settings from './pages/Settings';
 import OperatorProfile from './pages/OperatorProfile';
 import Layout from './components/Layout';
@@ -75,10 +76,19 @@ function MainApp() {
         />
         <Route 
           path="/login" 
-          element={user ? <Navigate to="/dashboard" replace /> : <Login />} 
+          element={user ? <Navigate to="/inicio" replace /> : <Login />} 
         />
 
         {/* Private Routes (Wrapped in Layout with Auth and Club validations) */}
+        <Route 
+          path="/inicio" 
+          element={
+            !user ? <Navigate to="/login" replace /> : 
+            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
+            <Layout><Inicio /></Layout>
+          } 
+        />
+        
         <Route 
           path="/dashboard" 
           element={
@@ -144,7 +154,7 @@ function MainApp() {
         {/* Fallback Redirection */}
         <Route 
           path="*" 
-          element={<Navigate to={user ? "/dashboard" : "/"} replace />} 
+          element={<Navigate to={user ? "/inicio" : "/"} replace />} 
         />
       </Routes>
     </Router>
