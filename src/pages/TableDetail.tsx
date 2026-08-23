@@ -158,7 +158,7 @@ export default function TableDetail() {
   async function saveTransaction(e?: React.FormEvent) {
     if (e) e.preventDefault();
     const amount = parseFloat(txAmount);
-    if (isNaN(amount) || amount < 0 || !id || !clubId || isSubmitting || !activePlayerAction) return;
+    if (isNaN(amount) || amount < 0 || (activeActionType === 'buy_in' && amount === 0) || !id || !clubId || isSubmitting || !activePlayerAction) return;
 
     setIsSubmitting(true);
     try {
@@ -542,14 +542,15 @@ export default function TableDetail() {
             triggerHaptic('medium');
             setIsAddingPlayer(true);
           }}
-          className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-2xl flex items-center justify-center z-50 cursor-pointer active:scale-90 transition-transform"
+          className="fixed bottom-24 right-6 px-5 h-14 rounded-full bg-success text-white shadow-2xl flex items-center gap-2 z-50 cursor-pointer active:scale-95 transition-all hover:bg-opacity-90 font-bold text-sm"
           style={{ 
-            boxShadow: '0 8px 30px rgba(59, 130, 246, 0.45)',
+            boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
             border: 'none',
             outline: 'none'
           }}
         >
-          <UserPlus size={24} />
+          <UserPlus size={20} />
+          <span>Adicionar Jogador</span>
         </button>
       )}
 
@@ -753,7 +754,13 @@ export default function TableDetail() {
                   <button 
                     type="submit" 
                     className="btn btn-primary w-full py-4 text-sm font-bold active:scale-95 transition-transform" 
-                    disabled={!txAmount || isNaN(Number(txAmount)) || Number(txAmount) <= 0 || isSubmitting}
+                    disabled={
+                      !txAmount || 
+                      isNaN(Number(txAmount)) || 
+                      Number(txAmount) < 0 || 
+                      (activeActionType === 'buy_in' && Number(txAmount) === 0) || 
+                      isSubmitting
+                    }
                   >
                     {isSubmitting ? 'Salvando...' : 'Confirmar Lançamento'}
                   </button>
