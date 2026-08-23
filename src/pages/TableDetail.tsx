@@ -283,11 +283,12 @@ export default function TableDetail() {
     const cashOut = playerTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const consumo = playerTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
     const balance = calculatePlayerBalance(buyIn, cashOut, consumo);
-    return { player, buyIn, cashOut, consumo, balance };
+    const hasCashOut = playerTxs.some(tx => tx.type === 'cash_out');
+    return { player, buyIn, cashOut, consumo, balance, hasCashOut };
   });
 
-  const activePlayers = playerSummaries.filter(p => p.cashOut === 0);
-  const closedPlayers = playerSummaries.filter(p => p.cashOut > 0);
+  const activePlayers = playerSummaries.filter(p => !p.hasCashOut);
+  const closedPlayers = playerSummaries.filter(p => p.hasCashOut);
 
   const totalBuyIn = playerSummaries.reduce((sum, p) => sum + p.buyIn, 0);
   const totalConsumo = playerSummaries.reduce((sum, p) => sum + p.consumo, 0); 
@@ -365,9 +366,23 @@ export default function TableDetail() {
       {/* 2. ACTIVE PLAYERS SECTION */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-base font-bold text-white mb-4 uppercase tracking-wider text-opacity-80">
-            Jogadores Ativos na Mesa ({activePlayers.length})
-          </h2>
+          <div className="flex justify-between items-center mb-4 gap-4">
+            <h2 className="text-sm md:text-base font-bold text-white uppercase tracking-wider text-opacity-80 mb-0">
+              Jogadores Ativos ({activePlayers.length})
+            </h2>
+          {table.status === 'active' && (
+            <button 
+              onClick={() => {
+                triggerHaptic('light');
+                setIsAddingPlayer(true);
+              }}
+              className="btn btn-success btn-sm flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold text-white active:scale-95 transition-transform"
+            >
+              <UserPlus size={14} />
+              <span>Adicionar Jogador</span>
+            </button>
+          )}
+        </div>
           
           {activePlayers.length === 0 ? (
             <div className="glass-panel text-center p-12">
@@ -535,24 +550,7 @@ export default function TableDetail() {
         </div>
       </div>
 
-      {/* FLOATING ACTION BUTTON (FAB) FOR ADDING PLAYERS */}
-      {table.status === 'active' && (
-        <button
-          onClick={() => {
-            triggerHaptic('medium');
-            setIsAddingPlayer(true);
-          }}
-          className="fixed bottom-24 right-6 px-5 h-14 rounded-full bg-success text-white shadow-2xl flex items-center gap-2 z-50 cursor-pointer active:scale-95 transition-all hover:bg-opacity-90 font-bold text-sm"
-          style={{ 
-            boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
-            border: 'none',
-            outline: 'none'
-          }}
-        >
-          <UserPlus size={20} />
-          <span>Adicionar Jogador</span>
-        </button>
-      )}
+
 
       {/* ADD PLAYER BOTTOM SHEET / CENTRALIZED DESKTOP MODAL */}
       {isAddingPlayer && (

@@ -42,4 +42,5 @@ export interface PlayerSummary {
   cashOut: number;
   consumo: number;
   balance: number; // cashOut - buyIn - consumo
+  hasCashOut?: boolean;
 }
