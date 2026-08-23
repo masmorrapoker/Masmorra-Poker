@@ -10,6 +10,8 @@ import {
   ChevronRight, Clock, UserPlus, ArrowRight, Sparkles
 } from 'lucide-react';
 import { formatMoney } from '../utils';
+import { triggerHaptic } from '../utils/haptic';
+import { toast } from '../components/Toast';
 
 export default function Inicio() {
   const navigate = useNavigate();
@@ -102,10 +104,13 @@ export default function Inicio() {
     if (!newTableName.trim() || !clubId) return;
     try {
       const data = await tableService.createTable(clubId, newTableName);
+      toast.success(`Mesa "${newTableName}" criada!`);
+      triggerHaptic('success');
       setIsCreatingTable(false);
       setNewTableName('');
       navigate(`/table/${data.id}`);
     } catch (error) {
+      toast.error('Erro ao criar mesa.');
       console.error('Error creating table:', error);
     }
   }
@@ -121,6 +126,8 @@ export default function Inicio() {
         newPlayerBirthDate || null,
         newPlayerNotes.trim() || null
       );
+      toast.success('Jogador cadastrado com sucesso!');
+      triggerHaptic('success');
       setIsAddingPlayer(false);
       setNewPlayerName('');
       setNewPlayerPhone('');
@@ -128,6 +135,7 @@ export default function Inicio() {
       setNewPlayerNotes('');
       fetchDashboardData(); // reload
     } catch (error) {
+      toast.error('Erro ao cadastrar jogador.');
       console.error('Error adding player:', error);
     }
   }
@@ -225,7 +233,7 @@ export default function Inicio() {
   };
 
   return (
-    <div className="container animate-fade-in text-left max-w-7xl mx-auto px-4 py-2">
+    <div className="container animate-fade-in text-left max-w-7xl mx-auto px-4 py-2 mobile-view-padding">
       {/* Header operations banner */}
       <div className="glass-panel border-l-4 border-l-primary mb-8 p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl">
         <div>
@@ -473,8 +481,11 @@ export default function Inicio() {
 
       {/* Add Modals Layout */}
       {isCreatingTable && (
-        <div className="modal-overlay">
-          <div className="modal-content text-left" style={{ maxWidth: '400px' }}>
+        <div className="modal-overlay animate-fade-in">
+          <div className="modal-content mobile-bottom-sheet max-w-sm">
+            {/* Mobile Drag Indicator */}
+            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setIsCreatingTable(false)} />
+            
             <div className="modal-header">
               <h2>Criar Nova Mesa</h2>
               <button className="close-btn" onClick={() => setIsCreatingTable(false)}>✕</button>
@@ -484,7 +495,7 @@ export default function Inicio() {
                 <label className="text-xs font-bold text-muted block mb-2">Nome ou Número da Mesa</label>
                 <input 
                   type="text" 
-                  className="input rounded-xl text-base py-2.5" 
+                  className="input rounded-xl text-base py-3" 
                   placeholder="Ex: Mesa 1, VIP, PLO5..."
                   value={newTableName}
                   onChange={(e) => setNewTableName(e.target.value)}
@@ -492,12 +503,12 @@ export default function Inicio() {
                   required
                 />
               </div>
-              <div className="flex justify-end gap-4 mt-6">
-                <button type="button" className="btn btn-outline" onClick={() => setIsCreatingTable(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!newTableName.trim()}>
+              <div className="flex flex-col md:flex-row gap-4 mt-6">
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newTableName.trim()}>
                   Criar Mesa
+                </button>
+                <button type="button" className="btn btn-outline w-full md:w-auto" onClick={() => setIsCreatingTable(false)}>
+                  Cancelar
                 </button>
               </div>
             </form>
@@ -506,8 +517,11 @@ export default function Inicio() {
       )}
 
       {isAddingPlayer && (
-        <div className="modal-overlay">
-          <div className="modal-content text-left" style={{ maxWidth: '500px' }}>
+        <div className="modal-overlay animate-fade-in">
+          <div className="modal-content mobile-bottom-sheet max-w-lg">
+            {/* Mobile Drag Indicator */}
+            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setIsAddingPlayer(false)} />
+
             <div className="modal-header">
               <h2>Cadastrar Novo Jogador</h2>
               <button className="close-btn" onClick={() => setIsAddingPlayer(false)}>✕</button>
@@ -517,7 +531,7 @@ export default function Inicio() {
                 <label className="text-xs font-bold text-muted block mb-2">Nome do Jogador *</label>
                 <input 
                   type="text" 
-                  className="input text-base py-2.5 rounded-xl" 
+                  className="input text-base py-3 rounded-xl" 
                   placeholder="Nome completo ou apelido"
                   value={newPlayerName}
                   onChange={(e) => setNewPlayerName(e.target.value)}
@@ -531,7 +545,7 @@ export default function Inicio() {
                   <label className="text-xs font-bold text-muted block mb-2">Telefone / WhatsApp (Opcional)</label>
                   <input 
                     type="text" 
-                    className="input text-base py-2.5 rounded-xl" 
+                    className="input text-base py-3 rounded-xl" 
                     placeholder="(00) 00000-0000"
                     value={newPlayerPhone}
                     onChange={(e) => setNewPlayerPhone(e.target.value)}
@@ -541,7 +555,7 @@ export default function Inicio() {
                   <label className="text-xs font-bold text-muted block mb-2">Data de Nascimento (Opcional)</label>
                   <input 
                     type="date" 
-                    className="input text-base py-2.5 rounded-xl" 
+                    className="input text-base py-3 rounded-xl" 
                     value={newPlayerBirthDate}
                     onChange={(e) => setNewPlayerBirthDate(e.target.value)}
                     style={{ colorScheme: 'dark' }}
@@ -552,7 +566,7 @@ export default function Inicio() {
               <div className="input-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="text-xs font-bold text-muted block mb-2">Observações / Notas (Opcional)</label>
                 <textarea 
-                  className="input text-base py-2.5 rounded-xl resize-none" 
+                  className="input text-base py-3 rounded-xl resize-none" 
                   placeholder="Informações adicionais do jogador (ex: prefere jogar PLO, cliente VIP)"
                   value={newPlayerNotes}
                   onChange={(e) => setNewPlayerNotes(e.target.value)}
@@ -561,12 +575,12 @@ export default function Inicio() {
                 />
               </div>
 
-              <div className="flex justify-end gap-4 mt-8">
-                <button type="button" className="btn btn-outline" onClick={() => setIsAddingPlayer(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!newPlayerName.trim()}>
+              <div className="flex flex-col md:flex-row gap-4 mt-8">
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim()}>
                   Salvar Jogador
+                </button>
+                <button type="button" className="btn btn-outline w-full md:w-auto" onClick={() => setIsAddingPlayer(false)}>
+                  Cancelar
                 </button>
               </div>
             </form>

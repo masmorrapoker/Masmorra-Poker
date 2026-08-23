@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
 import { formatDate } from '../utils';
+import { triggerHaptic } from '../utils/haptic';
+import { toast } from '../components/Toast';
 
 export default function Players() {
   const [players, setPlayers] = useState<GlobalPlayer[]>([]);
@@ -68,8 +70,11 @@ export default function Players() {
         newPlayerBirthDate || null, 
         newPlayerNotes.trim() || null
       );
+      toast.success('Jogador cadastrado!');
+      triggerHaptic('success');
       handleCloseModal();
     } catch (error) {
+      toast.error('Erro ao cadastrar jogador.');
       console.error('Error adding player:', error);
     }
   }
@@ -79,7 +84,7 @@ export default function Players() {
   );
 
   return (
-    <div className="animate-fade-in max-w-5xl mx-auto">
+    <div className="animate-fade-in max-w-5xl mx-auto mobile-view-padding">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="mb-2">Jogadores Cadastrados</h1>
@@ -145,8 +150,11 @@ export default function Players() {
       )}
 
       {isAdding && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '500px' }}>
+        <div className="modal-overlay animate-fade-in">
+          <div className="modal-content mobile-bottom-sheet max-w-lg">
+            {/* Mobile Drag Indicator */}
+            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={handleCloseModal} />
+            
             <div className="modal-header">
               <h2>Cadastrar Novo Jogador</h2>
               <button className="close-btn" onClick={handleCloseModal}>✕</button>
@@ -200,12 +208,12 @@ export default function Players() {
                 />
               </div>
 
-              <div className="flex justify-end gap-4 mt-8">
-                <button type="button" className="btn btn-outline" onClick={handleCloseModal}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={!newPlayerName.trim()}>
+              <div className="flex flex-col md:flex-row gap-4 mt-8">
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim()}>
                   Salvar Jogador
+                </button>
+                <button type="button" className="btn btn-outline w-full md:w-auto" onClick={handleCloseModal}>
+                  Cancelar
                 </button>
               </div>
             </form>

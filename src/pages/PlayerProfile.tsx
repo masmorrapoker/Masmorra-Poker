@@ -6,6 +6,8 @@ import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
 import { formatMoney, formatDate, formatPhone, calculatePlayerBalance } from '../utils';
 import { LOCAL_STORAGE_KEYS } from '../constants';
+import { triggerHaptic } from '../utils/haptic';
+import { toast } from '../components/Toast';
 
 export default function PlayerProfile() {
   const { id } = useParams<{ id: string }>();
@@ -45,8 +47,11 @@ export default function PlayerProfile() {
         notes: editNotes.trim() || null
       });
       setPlayer(updated);
+      toast.success('Perfil atualizado com sucesso!');
+      triggerHaptic('success');
       setIsEditing(false);
     } catch(err) {
+      toast.error('Erro ao salvar alterações.');
       console.error('Error saving player edits:', err);
     }
   };
@@ -84,7 +89,7 @@ export default function PlayerProfile() {
   const isNegative = balance < 0;
 
   return (
-    <div className="animate-fade-in max-w-4xl mx-auto">
+    <div className="animate-fade-in max-w-4xl mx-auto mobile-view-padding">
       <button className="btn btn-outline mb-6 desktop-only" onClick={() => navigate('/players')}>
         <ArrowLeft size={18} /> Voltar
       </button>
@@ -294,8 +299,11 @@ export default function PlayerProfile() {
           </div>
         )}
         {isEditing && (
-          <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '500px' }}>
+          <div className="modal-overlay animate-fade-in">
+            <div className="modal-content mobile-bottom-sheet max-w-lg">
+              {/* Mobile Drag Indicator */}
+              <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setIsEditing(false)} />
+              
               <div className="modal-header">
                 <h2>Editar Perfil de Jogador</h2>
                 <button className="close-btn" onClick={() => setIsEditing(false)}>✕</button>
@@ -348,12 +356,12 @@ export default function PlayerProfile() {
                   />
                 </div>
 
-                <div className="flex justify-end gap-4 mt-8">
-                  <button type="button" className="btn btn-outline" onClick={() => setIsEditing(false)}>
-                    Cancelar
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={!editName.trim()}>
+                <div className="flex flex-col md:flex-row gap-4 mt-8">
+                  <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!editName.trim()}>
                     Salvar Alterações
+                  </button>
+                  <button type="button" className="btn btn-outline w-full md:w-auto" onClick={() => setIsEditing(false)}>
+                    Cancelar
                   </button>
                 </div>
               </form>

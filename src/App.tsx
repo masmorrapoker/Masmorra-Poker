@@ -170,11 +170,14 @@ function MainApp() {
   );
 }
 
+import { ToastContainer } from './components/Toast';
+
 function App() {
   return (
     <AuthProvider>
       <ClubProvider>
         <MainApp />
+        <ToastContainer />
       </ClubProvider>
     </AuthProvider>
   );
