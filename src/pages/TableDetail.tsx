@@ -291,7 +291,9 @@ export default function TableDetail() {
   const closedPlayers = playerSummaries.filter(p => p.hasCashOut);
 
   const totalBuyIn = playerSummaries.reduce((sum, p) => sum + p.buyIn, 0);
-  const totalConsumo = playerSummaries.reduce((sum, p) => sum + p.consumo, 0); 
+  const totalCashOut = playerSummaries.reduce((sum, p) => sum + p.cashOut, 0);
+  const totalConsumo = playerSummaries.reduce((sum, p) => sum + p.consumo, 0);
+  const rakeTableTotal = totalBuyIn - totalCashOut; 
 
   const availablePlayersToAdd = globalPlayers.filter(
     gp => !players.some(tp => tp.name === gp.name) && gp.name.toLowerCase().includes(playerSearchTerm.toLowerCase())
@@ -331,7 +333,7 @@ export default function TableDetail() {
         </div>
 
         {/* Stats compact grid layout */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto text-left">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto text-left">
           <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
             <span className="text-[9px] text-muted uppercase font-bold block">Jogadores Ativos</span>
             <span className="text-sm font-extrabold text-white">{activePlayers.length}</span>
@@ -347,6 +349,12 @@ export default function TableDetail() {
           <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
             <span className="text-[9px] text-muted uppercase font-bold block">Consumo Copa</span>
             <span className="text-sm font-extrabold text-danger">{formatMoney(totalConsumo)}</span>
+          </div>
+          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-primary border-opacity-30">
+            <span className="text-[9px] text-primary uppercase font-bold block">Rake Estimado</span>
+            <span className={`text-sm font-extrabold ${rakeTableTotal >= 0 ? 'text-primary' : 'text-danger'}`}>
+              {formatMoney(rakeTableTotal)}
+            </span>
           </div>
         </div>
 
