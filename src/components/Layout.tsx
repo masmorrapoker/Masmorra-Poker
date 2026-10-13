@@ -187,15 +187,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Bottom Sheet Menu "Mais" */}
       {isMoreMenuOpen && (
-        <div className="fixed inset-0 z-[999] md:hidden">
+        <div className="md:hidden">
           {/* Backdrop overlay */}
           <div 
             onClick={() => setIsMoreMenuOpen(false)}
-            className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 animate-fade-in"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              zIndex: 998
+            }}
           />
           
           {/* Sheet content */}
-          <div className="absolute bottom-0 inset-x-0 bg-[#0f172a] rounded-t-[32px] border-t border-glass-border p-6 pb-8 flex flex-col gap-5 animate-slide-up max-h-[85vh] overflow-y-auto">
+          <div 
+            className="fixed bottom-0 left-0 right-0 border-t border-glass-border p-6 pb-8 flex flex-col gap-5 animate-slide-up max-h-[85vh] overflow-y-auto safe-bottom"
+            style={{
+              backgroundColor: '#0f172a',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              zIndex: 999
+            }}
+          >
             {/* Drag Handle indicator */}
             <div className="w-12 h-1.5 bg-glass-border rounded-full mx-auto" onClick={() => setIsMoreMenuOpen(false)} />
 
