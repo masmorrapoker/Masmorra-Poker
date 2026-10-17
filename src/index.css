@@ -343,7 +343,9 @@ p { color: var(--text-muted); line-height: 1.6; }
 }
 
 @media (max-width: 767px) {
-  .desktop-only {
+  /* Seletor reforçado: as regras de .btn-* também usam !important */
+  .desktop-only,
+  .btn.desktop-only {
     display: none !important;
   }
   .mobile-only {
@@ -362,9 +364,10 @@ p { color: var(--text-muted); line-height: 1.6; }
   }
   
   /* Prevent huge typography from breaking layouts */
-  h1 { font-size: 1.65rem !important; }
-  h2 { font-size: 1.3rem !important; }
-  h3 { font-size: 1.1rem !important; }
+  /* Tamanho padrão no celular, só para títulos sem classe de tamanho (text-*) */
+  h1:not([class*="text-"]) { font-size: 1.65rem; }
+  h2:not([class*="text-"]) { font-size: 1.3rem; }
+  h3:not([class*="text-"]) { font-size: 1.1rem; }
   
   /* Generous mobile-optimized touch buttons */
   .btn {
