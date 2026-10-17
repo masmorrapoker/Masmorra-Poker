@@ -7,6 +7,7 @@ import {
   Upload, Calendar, DollarSign, Coffee, Sliders, Users2, Key, Trash, Edit, Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { formatMoney } from '../utils';
 
 interface ProductItem {
   id: string;
@@ -726,7 +727,7 @@ export default function Settings() {
                             </div>
                             <div className="flex items-center gap-4">
                               <span className="font-extrabold text-sm text-success">
-                                {prod.price === 0 ? 'Grátis' : `R$ ${prod.price.toFixed(2)}`}
+                                {prod.price === 0 ? 'Grátis' : formatMoney(prod.price)}
                               </span>
                               <div className="flex items-center gap-1">
                                 <button 

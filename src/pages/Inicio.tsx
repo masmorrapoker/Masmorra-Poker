@@ -342,13 +342,16 @@ export default function Inicio() {
                 ) : (
                   <div className="space-y-4">
                     {lastTables.map(t => (
-                      <div 
-                        key={t.id} 
-                        className="p-4 bg-black bg-opacity-25 rounded-2xl border border-glass-border hover:bg-opacity-40 transition-all flex items-center justify-between gap-4"
+                      <button
+                        type="button"
+                        key={t.id}
+                        onClick={() => navigate(`/table/${t.id}`)}
+                        aria-label={`Abrir ${t.name}`}
+                        className="w-full text-left p-4 bg-black bg-opacity-25 rounded-2xl border border-glass-border hover:bg-opacity-40 transition-all flex items-center justify-between gap-3 cursor-pointer"
                       >
-                        <div>
-                          <div className="flex items-center gap-2.5">
-                            <h4 className="text-white font-bold text-sm mb-0">{t.name}</h4>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-white font-bold text-sm mb-0 truncate">{t.name}</h4>
                             <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md border ${
                               t.status === 'active' 
                                 ? 'bg-success bg-opacity-10 text-success border-success border-opacity-25' 
@@ -363,13 +366,8 @@ export default function Inicio() {
                             <span>{getTablePlayersCount(t.id)} jogadores</span>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => navigate(`/table/${t.id}`)}
-                          className="btn btn-outline btn-sm flex items-center gap-1.5 py-2 px-4 rounded-xl font-bold text-xs"
-                        >
-                          Abrir <ArrowRight size={12} />
-                        </button>
-                      </div>
+                        <ArrowRight size={16} className="text-muted flex-shrink-0" aria-hidden="true" />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -449,7 +447,7 @@ export default function Inicio() {
                                 <><strong>{act.playerName}</strong> consumiu <strong className="text-danger">{act.description || 'Consumo'}</strong></>
                               )}
                               {isClosed && (
-                                <>Mesa <strong className="text-primary">{act.tableName}</strong> encerrada</>
+                                <>Mesa encerrada: <strong className="text-primary">{act.tableName}</strong></>
                               )}
                             </p>
                           </div>
