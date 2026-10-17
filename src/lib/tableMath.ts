@@ -97,3 +97,30 @@ export function formatDuration(table: Pick<Table, 'created_at' | 'closed_at'>, n
   const m = mins % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+/**
+ * Junta linhas do mesmo jogador (mesmo cadastro ou mesmo nome) para o
+ * relatório. Mesas antigas podem ter o mesmo jogador adicionado mais de uma vez.
+ * Linhas sem nenhum lançamento são descartadas.
+ */
+export function mergeByPlayer(summaries: PlayerSummary[]): PlayerSummary[] {
+  const groups = new Map<string, PlayerSummary>();
+  for (const s of summaries) {
+    if (s.buyIn === 0 && s.cashOut === 0 && s.consumo === 0) continue;
+    const key = s.player.player_id || s.player.name.trim().toLowerCase();
+    const prev = groups.get(key);
+    if (!prev) {
+      groups.set(key, { ...s });
+      continue;
+    }
+    groups.set(key, {
+      player: prev.player,
+      buyIn: prev.buyIn + s.buyIn,
+      cashOut: prev.cashOut + s.cashOut,
+      consumo: prev.consumo + s.consumo,
+      balance: prev.balance + s.balance,
+      hasCashOut: Boolean(prev.hasCashOut && s.hasCashOut)
+    });
+  }
+  return [...groups.values()];
+}

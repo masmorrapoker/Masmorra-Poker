@@ -1,7 +1,7 @@
 import { Copy, Download, Printer, X } from 'lucide-react';
 import type { PlayerSummary, Table, Transaction, Player } from '../../types';
 import type { TableTotals } from '../../lib/tableMath';
-import { formatDuration } from '../../lib/tableMath';
+import { formatDuration, mergeByPlayer } from '../../lib/tableMath';
 import { paymentLabel } from '../../lib/paymentMethods';
 import { downloadCSV, slug } from '../../lib/csv';
 import { formatMoney, formatDateTime } from '../../utils';
@@ -21,7 +21,7 @@ const signed = (v: number) => `${v > 0 ? '+' : ''}${formatMoney(v)}`;
 
 /** Texto do relatório para colar no WhatsApp (negrito com *asteriscos*). */
 export function buildReportText(clubName: string | null, table: Table, summaries: PlayerSummary[], totals: TableTotals): string {
-  const ranking = [...summaries].sort((a, b) => b.balance - a.balance);
+  const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
   const lines = [
     `*${table.name}*${clubName ? ` · ${clubName}` : ''}`,
     `${formatDateTime(table.created_at)} · duração ${formatDuration(table)}`,
@@ -50,7 +50,7 @@ export function buildReportText(clubName: string | null, table: Table, summaries
  * Pode ser copiado para o WhatsApp, impresso/salvo em PDF ou baixado em planilha.
  */
 export default function TableReport({ clubName, table, summaries, totals, transactions, players, onClose }: TableReportProps) {
-  const ranking = [...summaries].sort((a, b) => b.balance - a.balance);
+  const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
 
   async function copyText() {
     const text = buildReportText(clubName, table, summaries, totals);
@@ -116,7 +116,7 @@ export default function TableReport({ clubName, table, summaries, totals, transa
 
         <div className="overflow-x-auto mb-5">
           <table className="report-table w-full text-xs text-left">
-            <caption className="text-xs text-muted text-left mb-2">Resultado por jogador ({summaries.length})</caption>
+            <caption className="text-xs text-muted text-left mb-2">Resultado por jogador ({ranking.length})</caption>
             <thead>
               <tr className="text-muted">
                 <th scope="col" className="py-2 pr-2">Jogador</th>
