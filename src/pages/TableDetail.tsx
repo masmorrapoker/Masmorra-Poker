@@ -850,7 +850,7 @@ export default function TableDetail() {
                       style={{ background: 'rgba(15,23,42,0.5)' }}
                     >
                       <span className="font-bold text-xs text-white">{item.name}</span>
-                      <span className="text-xs text-success font-bold">{item.price === 0 ? 'Grátis' : `R$ ${item.price.toFixed(2)}`}</span>
+                      <span className="text-xs text-success font-bold">{item.price === 0 ? 'Grátis' : formatMoney(item.price)}</span>
                     </button>
                   ))}
                 </div>

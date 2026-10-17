@@ -1,10 +1,13 @@
 /**
  * Formats a numeric value into Brazilian Real (R$) currency representation.
  */
+const BRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
 export const formatMoney = (amount: number | string | null | undefined): string => {
   if (amount === null || amount === undefined) return 'R$ 0,00';
   const numeric = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
-  return `R$ ${numeric.toFixed(2)}`;
+  // Intl usa espaço não separável entre "R$" e o número; troca por espaço comum.
+  return BRL.format(numeric).replace(/\u00a0/g, ' ');
 };
 
 /**

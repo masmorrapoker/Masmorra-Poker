@@ -449,7 +449,7 @@ export default function Inicio() {
                                 <><strong>{act.playerName}</strong> consumiu <strong className="text-danger">{act.description || 'Consumo'}</strong></>
                               )}
                               {isClosed && (
-                                <>Mesa <strong className="text-primary">{act.tableName}</strong> encerrada</>
+                                <>Mesa encerrada: <strong className="text-primary">{act.tableName}</strong></>
                               )}
                             </p>
                           </div>
