@@ -54,3 +54,20 @@ export interface RemovedTransaction {
   old_data: Transaction;
   changed_at: string;
 }
+
+export type TableEventType =
+  | 'mesa_aberta' | 'mesa_encerrada' | 'jogador_entrou' | 'jogador_removido'
+  | 'buy_in' | 'cash_out' | 'consumo' | 'lancamento_removido' | 'lancamento_alterado';
+
+/** Evento da linha do tempo da mesa (tabela table_events, gravada pelo banco). */
+export interface TableEvent {
+  id: number;
+  table_id: string;
+  event_type: TableEventType;
+  player_name: string | null;
+  amount: number | null;
+  description: string | null;
+  ref_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}

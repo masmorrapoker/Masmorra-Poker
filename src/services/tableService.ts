@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { fetchAll } from '../lib/fetchAll';
-import type { Table, Player } from '../types';
+import type { Table, Player, TableEvent } from '../types';
 
 export const tableService = {
   async getTables(clubId: string): Promise<Table[]> {
@@ -79,6 +79,37 @@ export const tableService = {
       throw error;
     }
     return data || [];
+  },
+
+  /**
+   * Linha do tempo da mesa (mais recente primeiro). Devolve null se o
+   * histórico ainda não existir no banco, para a tela usar o modo antigo.
+   */
+  async getTableEvents(clubId: string, tableId: string): Promise<TableEvent[] | null> {
+    const { data, error } = await supabase
+      .from('table_events')
+      .select('*')
+      .eq('club_id', clubId)
+      .eq('table_id', tableId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      console.warn('Histórico da mesa indisponível:', error.message);
+      return null;
+    }
+    return (data || []) as TableEvent[];
+  },
+
+  /** Remove um jogador adicionado por engano (o banco só permite sem lançamentos). */
+  async removePlayerFromTable(clubId: string, tablePlayerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('table_players')
+      .delete()
+      .eq('id', tablePlayerId)
+      .eq('club_id', clubId);
+    if (error) throw error;
   },
 
   /**

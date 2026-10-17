@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer, RemovedTransaction } from '../types';
+import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer, RemovedTransaction, TableEvent } from '../types';
+import ConfirmDialog from '../components/ConfirmDialog';
+import TableTimeline from '../components/TableTimeline';
 import { UserPlus, XCircle, Search, UserCheck, Trash2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
@@ -22,6 +24,12 @@ export default function TableDetail() {
   const [globalPlayers, setGlobalPlayers] = useState<GlobalPlayer[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [removedTransactions, setRemovedTransactions] = useState<RemovedTransaction[]>([]);
+  // Linha do tempo completa; null = histórico ainda não disponível no banco (modo antigo).
+  const [events, setEvents] = useState<TableEvent[] | null>(null);
+  // Confirmações dentro do app (substituem window.confirm).
+  const [pendingDeleteTxId, setPendingDeleteTxId] = useState<string | null>(null);
+  const [pendingRemovePlayer, setPendingRemovePlayer] = useState<Player | null>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   
   // Collapsible states
@@ -85,6 +93,7 @@ export default function TableDetail() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${id}` }, () => fetchTableData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'table_players', filter: `table_id=eq.${id}` }, () => fetchTableData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `table_id=eq.${id}` }, () => fetchTableData())
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'table_events', filter: `table_id=eq.${id}` }, () => fetchTableData())
         .subscribe();
 
       const playersSub = supabase
@@ -128,8 +137,9 @@ export default function TableDetail() {
       setTable(tableData);
       setPlayers(playersData || []);
       setTransactions(txData || []);
-      // Auditoria em paralelo: se falhar, não atrapalha a operação da mesa.
+      // Histórico em paralelo: se falhar, não atrapalha a operação da mesa.
       transactionService.getRemovedTransactions(clubId, id).then(setRemovedTransactions);
+      tableService.getTableEvents(clubId, id).then(setEvents);
     } catch (error) {
       console.error('Error fetching table details:', error);
     } finally {
@@ -257,17 +267,47 @@ export default function TableDetail() {
     }
   };
 
-  async function deleteTransaction(txId: string) {
-    if (!window.confirm('Tem certeza que deseja remover esta transação?')) return;
-    if (!clubId) return;
+  function deleteTransaction(txId: string) {
     triggerHaptic('medium');
+    setPendingDeleteTxId(txId);
+  }
+
+  async function confirmDeleteTransaction() {
+    if (!clubId || !pendingDeleteTxId) return;
+    setConfirmBusy(true);
     try {
-      await transactionService.deleteTransaction(clubId, txId);
-      toast.success('Transação removida!');
+      await transactionService.deleteTransaction(clubId, pendingDeleteTxId);
+      toast.success('Lançamento removido. Ele continua visível no histórico.');
+      triggerHaptic('success');
+      setPendingDeleteTxId(null);
       await fetchTableData();
     } catch (error) {
-      toast.error(isClosedTableError(error) ? 'Mesa encerrada: não é possível remover lançamentos.' : 'Erro ao remover transação.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: não é possível remover lançamentos.' : 'Erro ao remover lançamento.');
       console.error('Error deleting transaction:', error);
+    } finally {
+      setConfirmBusy(false);
+    }
+  }
+
+  async function confirmRemovePlayer() {
+    if (!clubId || !pendingRemovePlayer) return;
+    setConfirmBusy(true);
+    try {
+      await tableService.removePlayerFromTable(clubId, pendingRemovePlayer.id);
+      toast.success(`${pendingRemovePlayer.name} removido da mesa.`);
+      triggerHaptic('success');
+      setPendingRemovePlayer(null);
+      setActivePlayerAction(null);
+      setActiveActionType(null);
+      await fetchTableData();
+    } catch (error) {
+      const msg = (error as { message?: string })?.message ?? '';
+      toast.error(msg.includes('lançamentos') || isClosedTableError(error)
+        ? msg
+        : 'Erro ao remover jogador da mesa.');
+      console.error('Error removing player:', error);
+    } finally {
+      setConfirmBusy(false);
     }
   }
 
@@ -527,11 +567,26 @@ export default function TableDetail() {
           >
             <span className="text-xs font-extrabold text-muted uppercase tracking-wider flex items-center gap-2">
               {isHistoryExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />} 
-              Histórico ({transactions.length})
+              Histórico ({events ? events.length : transactions.length})
             </span>
           </button>
 
-          {isHistoryExpanded && (
+          {isHistoryExpanded && events !== null && (
+            <div className="glass-panel animate-fade-in text-left">
+              <TableTimeline
+                events={events}
+                canDelete={ev =>
+                  table.status === 'active' &&
+                  (ev.event_type === 'buy_in' || ev.event_type === 'cash_out' || ev.event_type === 'consumo') &&
+                  !!ev.ref_id &&
+                  transactions.some(t => t.id === ev.ref_id)
+                }
+                onDelete={ev => ev.ref_id && deleteTransaction(ev.ref_id)}
+              />
+            </div>
+          )}
+
+          {isHistoryExpanded && events === null && (
             <div className="glass-panel space-y-3 animate-fade-in text-left">
               {transactions.length === 0 ? (
                 <p className="text-muted text-center py-6 text-xs font-semibold">Nenhuma movimentação financeira.</p>
@@ -748,6 +803,19 @@ export default function TableDetail() {
                   ✏️ Editar Jogador
                 </button>
 
+                {!transactions.some(tx => tx.player_id === activePlayerAction.player.id) && (
+                  <button
+                    onClick={() => {
+                      triggerHaptic('medium');
+                      setPendingRemovePlayer(activePlayerAction.player);
+                    }}
+                    className="w-full py-3 rounded-xl text-danger font-bold text-xs flex items-center justify-center gap-2 cursor-pointer border border-danger border-opacity-25 active:scale-95 transition-transform"
+                    style={{ background: 'transparent' }}
+                  >
+                    Remover da mesa (adicionado por engano)
+                  </button>
+                )}
+
                 <button
                   onClick={() => {
                     triggerHaptic('light');
@@ -942,6 +1010,34 @@ export default function TableDetail() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteTxId !== null}
+        danger
+        busy={confirmBusy}
+        title="Remover lançamento?"
+        message={(() => {
+          const tx = transactions.find(t => t.id === pendingDeleteTxId);
+          if (!tx) return 'Este lançamento será removido.';
+          const who = players.find(p => p.id === tx.player_id)?.name ?? 'Jogador';
+          const kind = tx.type === 'buy_in' ? 'Buy-in' : tx.type === 'cash_out' ? 'Cash-out' : 'Consumo';
+          return <>Remover <strong className="text-white">{kind} de {formatMoney(Number(tx.amount))}</strong> de <strong className="text-white">{who}</strong>? A remoção fica registrada no histórico da mesa.</>;
+        })()}
+        confirmLabel="Remover lançamento"
+        onConfirm={confirmDeleteTransaction}
+        onCancel={() => setPendingDeleteTxId(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingRemovePlayer !== null}
+        danger
+        busy={confirmBusy}
+        title="Remover jogador da mesa?"
+        message={<><strong className="text-white">{pendingRemovePlayer?.name}</strong> sai da mesa. O cadastro dele continua no clube, e a remoção fica no histórico.</>}
+        confirmLabel="Remover da mesa"
+        onConfirm={confirmRemovePlayer}
+        onCancel={() => setPendingRemovePlayer(null)}
+      />
 
       {/* CLOSE TABLE CONFIRMATION OVERLAY */}
       {isClosingTable && (
