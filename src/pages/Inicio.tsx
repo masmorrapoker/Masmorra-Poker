@@ -9,7 +9,8 @@ import {
   Plus, Users, MessageSquare, Calendar, 
   ChevronRight, Clock, UserPlus, ArrowRight, Sparkles
 } from 'lucide-react';
-import { formatMoney } from '../utils';
+import { formatMoney, isDuplicateNameError, isSamePlayer } from '../utils';
+import { useSubmitLock } from '../hooks/useSubmitLock';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
 
@@ -23,6 +24,8 @@ export default function Inicio() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [globalPlayers, setGlobalPlayers] = useState<GlobalPlayer[]>([]);
   const [loading, setLoading] = useState(true);
+  const tableLock = useSubmitLock();
+  const playerLock = useSubmitLock();
 
   // Modals state
   const [isCreatingTable, setIsCreatingTable] = useState(false);
@@ -102,42 +105,48 @@ export default function Inicio() {
   async function handleCreateTable(e: React.FormEvent) {
     e.preventDefault();
     if (!newTableName.trim() || !clubId) return;
-    try {
-      const data = await tableService.createTable(clubId, newTableName);
-      toast.success(`Mesa "${newTableName}" criada!`);
-      triggerHaptic('success');
-      setIsCreatingTable(false);
-      setNewTableName('');
-      navigate(`/table/${data.id}`);
-    } catch (error) {
-      toast.error('Erro ao criar mesa.');
-      console.error('Error creating table:', error);
-    }
+    await tableLock.run(async () => {
+      try {
+        const data = await tableService.createTable(clubId, newTableName.trim());
+        toast.success(`Mesa "${newTableName.trim()}" criada!`);
+        triggerHaptic('success');
+        setIsCreatingTable(false);
+        setNewTableName('');
+        navigate(`/table/${data.id}`);
+      } catch (error) {
+        toast.error('Erro ao criar mesa.');
+        console.error('Error creating table:', error);
+      }
+    });
   }
 
   async function handleAddPlayer(e: React.FormEvent) {
     e.preventDefault();
     if (!newPlayerName.trim() || !clubId) return;
-    try {
-      await playerService.createPlayer(
-        clubId,
-        newPlayerName,
-        newPlayerPhone.trim() || null,
-        newPlayerBirthDate || null,
-        newPlayerNotes.trim() || null
-      );
-      toast.success('Jogador cadastrado com sucesso!');
-      triggerHaptic('success');
-      setIsAddingPlayer(false);
-      setNewPlayerName('');
-      setNewPlayerPhone('');
-      setNewPlayerBirthDate('');
-      setNewPlayerNotes('');
-      fetchDashboardData(); // reload
-    } catch (error) {
-      toast.error('Erro ao cadastrar jogador.');
-      console.error('Error adding player:', error);
-    }
+    await playerLock.run(async () => {
+      try {
+        await playerService.createPlayer(
+          clubId,
+          newPlayerName,
+          newPlayerPhone.trim() || null,
+          newPlayerBirthDate || null,
+          newPlayerNotes.trim() || null
+        );
+        toast.success('Jogador cadastrado com sucesso!');
+        triggerHaptic('success');
+        setIsAddingPlayer(false);
+        setNewPlayerName('');
+        setNewPlayerPhone('');
+        setNewPlayerBirthDate('');
+        setNewPlayerNotes('');
+        fetchDashboardData(); // reload
+      } catch (error) {
+        toast.error(isDuplicateNameError(error)
+          ? 'Já existe um jogador com esse nome.'
+          : 'Erro ao cadastrar jogador.');
+        console.error('Error adding player:', error);
+      }
+    });
   }
 
   // Compilers for feed segments
@@ -157,7 +166,7 @@ export default function Inicio() {
   for (const sess of activeSessions) {
     if (!uniqueNames.includes(sess.name) && uniqueNames.length < 5) {
       uniqueNames.push(sess.name);
-      const gp = globalPlayers.find(g => g.name === sess.name);
+      const gp = globalPlayers.find(g => isSamePlayer(sess, g));
       const diffDays = Math.floor((Date.now() - new Date(sess.created_at).getTime()) / (1000 * 60 * 60 * 24));
       
       let relative = 'Jogou hoje';
@@ -504,7 +513,7 @@ export default function Inicio() {
                 />
               </div>
               <div className="flex flex-col md:flex-row gap-4 mt-6">
-                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newTableName.trim()}>
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newTableName.trim() || tableLock.busy}>
                   Criar Mesa
                 </button>
                 <button type="button" className="btn btn-outline w-full md:w-auto" onClick={() => setIsCreatingTable(false)}>
@@ -576,7 +585,7 @@ export default function Inicio() {
               </div>
 
               <div className="flex flex-col md:flex-row gap-4 mt-8">
-                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim()}>
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim() || playerLock.busy}>
                   Salvar Jogador
                 </button>
                 <button type="button" className="btn btn-outline w-full md:w-auto" onClick={() => setIsAddingPlayer(false)}>

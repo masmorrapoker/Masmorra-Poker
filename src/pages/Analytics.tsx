@@ -9,7 +9,7 @@ import {
   Calendar, Users, TrendingUp, TrendingDown, Clock, 
   FileText, Activity, ShieldAlert, Sparkles, Filter, Coffee, BarChart3
 } from 'lucide-react';
-import { formatMoney } from '../utils';
+import { formatMoney, isSamePlayer } from '../utils';
 
 export default function Analytics() {
   const { clubId } = useClub();
@@ -307,24 +307,29 @@ export default function Analytics() {
   const getTopPlayersList = () => {
     const playersMap: Record<string, { name: string; id?: string; sessions: number; buyIn: number; consumo: number; total: number }> = {};
 
+    // Agrupa pelo vínculo com o cadastro; nome só para registros antigos sem vínculo.
+    const playerKey = (sess: { player_id?: string | null; name: string }) => sess.player_id || `nome:${sess.name}`;
+
     periodSessions.forEach(sess => {
-      if (!playersMap[sess.name]) {
-        const gp = globalPlayers.find(g => g.name === sess.name);
-        playersMap[sess.name] = { name: sess.name, id: gp?.id, sessions: 0, buyIn: 0, consumo: 0, total: 0 };
+      const key = playerKey(sess);
+      if (!playersMap[key]) {
+        const gp = globalPlayers.find(g => isSamePlayer(sess, g));
+        playersMap[key] = { name: gp?.name ?? sess.name, id: gp?.id, sessions: 0, buyIn: 0, consumo: 0, total: 0 };
       }
-      playersMap[sess.name].sessions++;
+      playersMap[key].sessions++;
     });
 
     periodTxs.forEach(tx => {
       const session = tablePlayers.find(tp => tp.id === tx.player_id);
-      if (session && playersMap[session.name]) {
+      const entry = session ? playersMap[playerKey(session)] : undefined;
+      if (entry) {
         const amount = Number(tx.amount);
         if (tx.type === 'buy_in') {
-          playersMap[session.name].buyIn += amount;
-          playersMap[session.name].total += amount;
+          entry.buyIn += amount;
+          entry.total += amount;
         } else if (tx.type === 'consumo') {
-          playersMap[session.name].consumo += amount;
-          playersMap[session.name].total += amount;
+          entry.consumo += amount;
+          entry.total += amount;
         }
       }
     });
@@ -357,7 +362,7 @@ export default function Analytics() {
     const totalGlobal = globalPlayers.length;
     
     const inactiveCount = globalPlayers.filter(gp => {
-      const sessions = tablePlayers.filter(tp => tp.name === gp.name);
+      const sessions = tablePlayers.filter(tp => isSamePlayer(tp, gp));
       if (sessions.length === 0) return true;
       const lastSession = [...sessions].sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
       const diffDays = (Date.now() - new Date(lastSession.created_at).getTime()) / (1000 * 60 * 60 * 24);

@@ -57,3 +57,29 @@ export const calculatePlayerBalance = (
   const co = typeof consumo === 'number' ? consumo : parseFloat(consumo) || 0;
   return c - b - co;
 };
+
+/**
+ * Erro de nome duplicado (índice único players_club_nome_unico no banco).
+ */
+export const isDuplicateNameError = (error: unknown): boolean => {
+  const e = error as { code?: string; message?: string } | null;
+  return e?.code === '23505' || (e?.message ?? '').includes('players_club_nome_unico');
+};
+
+/**
+ * Erro disparado pelo banco quando a mesa já foi encerrada.
+ */
+export const isClosedTableError = (error: unknown): boolean => {
+  const e = error as { message?: string } | null;
+  return (e?.message ?? '').includes('Mesa encerrada');
+};
+
+/**
+ * Compara um registro de jogador-na-mesa com um cadastro.
+ * Usa o vínculo por ID quando existe; nome só para registros antigos sem vínculo.
+ */
+export const isSamePlayer = (
+  tablePlayer: { player_id?: string | null; name: string },
+  player: { id: string; name: string }
+): boolean =>
+  tablePlayer.player_id ? tablePlayer.player_id === player.id : tablePlayer.name === player.name;

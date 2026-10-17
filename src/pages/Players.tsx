@@ -5,13 +5,15 @@ import { Plus, Users, Search, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
-import { formatDate } from '../utils';
+import { formatDate, isDuplicateNameError } from '../utils';
+import { useSubmitLock } from '../hooks/useSubmitLock';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
 
 export default function Players() {
   const [players, setPlayers] = useState<GlobalPlayer[]>([]);
   const [loading, setLoading] = useState(true);
+  const submitLock = useSubmitLock();
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isAdding, setIsAdding] = useState(false);
@@ -62,21 +64,25 @@ export default function Players() {
     e.preventDefault();
     if (!newPlayerName.trim() || !clubId) return;
 
-    try {
-      await playerService.createPlayer(
-        clubId, 
-        newPlayerName, 
-        newPlayerPhone.trim() || null, 
-        newPlayerBirthDate || null, 
-        newPlayerNotes.trim() || null
-      );
-      toast.success('Jogador cadastrado!');
-      triggerHaptic('success');
-      handleCloseModal();
-    } catch (error) {
-      toast.error('Erro ao cadastrar jogador.');
-      console.error('Error adding player:', error);
-    }
+    await submitLock.run(async () => {
+      try {
+        await playerService.createPlayer(
+          clubId, 
+          newPlayerName, 
+          newPlayerPhone.trim() || null, 
+          newPlayerBirthDate || null, 
+          newPlayerNotes.trim() || null
+        );
+        toast.success('Jogador cadastrado!');
+        triggerHaptic('success');
+        handleCloseModal();
+      } catch (error) {
+        toast.error(isDuplicateNameError(error)
+          ? 'Já existe um jogador com esse nome.'
+          : 'Erro ao cadastrar jogador.');
+        console.error('Error adding player:', error);
+      }
+    });
   }
 
   const filteredPlayers = players.filter(p => 
@@ -209,7 +215,7 @@ export default function Players() {
               </div>
 
               <div className="flex flex-col md:flex-row gap-4 mt-8">
-                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim()}>
+                <button type="submit" className="btn btn-primary w-full md:w-auto active:scale-95 transition-transform" disabled={!newPlayerName.trim() || submitLock.busy}>
                   Salvar Jogador
                 </button>
                 <button type="button" className="btn btn-outline w-full md:w-auto" onClick={handleCloseModal}>

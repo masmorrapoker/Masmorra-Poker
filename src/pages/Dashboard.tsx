@@ -6,10 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { formatDateTime } from '../utils';
+import { useSubmitLock } from '../hooks/useSubmitLock';
+import { toast } from '../components/Toast';
 
 export default function Dashboard() {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
+  const submitLock = useSubmitLock();
   const [isCreating, setIsCreating] = useState(false);
   const [newTableName, setNewTableName] = useState('');
   const navigate = useNavigate();
@@ -48,14 +51,17 @@ export default function Dashboard() {
     e.preventDefault();
     if (!newTableName.trim() || !clubId) return;
 
-    try {
-      const data = await tableService.createTable(clubId, newTableName);
-      setIsCreating(false);
-      setNewTableName('');
-      navigate(`/table/${data.id}`);
-    } catch (error) {
-      console.error('Error creating table:', error);
-    }
+    await submitLock.run(async () => {
+      try {
+        const data = await tableService.createTable(clubId, newTableName.trim());
+        setIsCreating(false);
+        setNewTableName('');
+        navigate(`/table/${data.id}`);
+      } catch (error) {
+        toast.error('Erro ao criar mesa.');
+        console.error('Error creating table:', error);
+      }
+    });
   }
 
   return (
@@ -141,7 +147,7 @@ export default function Dashboard() {
                 <button type="button" className="btn btn-outline" onClick={() => setIsCreating(false)}>
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={!newTableName.trim()}>
+                <button type="submit" className="btn btn-primary" disabled={!newTableName.trim() || submitLock.busy}>
                   Criar Mesa
                 </button>
               </div>

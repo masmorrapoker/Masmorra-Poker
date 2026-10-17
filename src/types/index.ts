@@ -20,6 +20,8 @@ export interface GlobalPlayer {
 export interface Player {
   id: string;
   table_id: string;
+  /** Vínculo com o cadastro (players.id). Nulo apenas em registros antigos. */
+  player_id?: string | null;
   name: string;
   created_at: string;
 }
