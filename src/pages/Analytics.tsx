@@ -11,6 +11,24 @@ import {
 } from 'lucide-react';
 import { formatMoney, isSamePlayer } from '../utils';
 
+/**
+ * Horário médio (HHhMM) de uma lista de datas, tratando a virada da meia-noite:
+ * horários entre 00h e 12h contam como "depois" das 23h (noite de poker).
+ */
+function averageClockTime(dates: string[]): string | null {
+  if (dates.length === 0) return null;
+  const minutes = dates.map(d => {
+    const date = new Date(d);
+    let m = date.getHours() * 60 + date.getMinutes();
+    if (m < 12 * 60) m += 24 * 60;
+    return m;
+  });
+  const avg = Math.round(minutes.reduce((a, b) => a + b, 0) / minutes.length) % (24 * 60);
+  const h = Math.floor(avg / 60);
+  const min = avg % 60;
+  return `${String(h).padStart(2, '0')}h${String(min).padStart(2, '0')}`;
+}
+
 export default function Analytics() {
   const { clubId } = useClub();
   
@@ -153,11 +171,49 @@ export default function Analytics() {
     const totalCashOut = cashOuts.reduce((sum, tx) => sum + Number(tx.amount), 0);
     const totalConsumo = consumos.reduce((sum, tx) => sum + Number(tx.amount), 0);
     
-    const rake = totalBuyIn - totalCashOut;
+    // Rake só existe de fato em mesa encerrada. Em mesa aberta, buy-in − cash-out
+    // ainda inclui fichas em jogo — mostrado à parte como "em jogo".
+    const tableById = new Map(tbls.map(t => [t.id, t]));
+    const revenueByTable = new Map<string, number>();
+    let rake = 0;
+    let inPlay = 0;
+    txs.forEach(tx => {
+      const t = tableById.get(tx.table_id);
+      if (!t) return;
+      const amount = Number(tx.amount);
+      const signed = tx.type === 'buy_in' ? amount : tx.type === 'cash_out' ? -amount : 0;
+      if (t.status === 'closed') {
+        rake += signed;
+        revenueByTable.set(t.id, (revenueByTable.get(t.id) ?? 0) + signed + (tx.type === 'consumo' ? amount : 0));
+      } else {
+        inPlay += signed;
+      }
+    });
+    const openTablesCount = tbls.filter(t => t.status !== 'closed').length;
+
     const revenue = rake + totalConsumo;
     const tablesCount = tbls.length;
-    const uniquePlayers = new Set(sessions.map(s => s.name)).size;
+    const uniquePlayers = new Set(sessions.map(s => s.player_id || `nome:${s.name}`)).size;
     const ticketMedio = uniquePlayers > 0 ? (revenue / uniquePlayers) : 0;
+
+    // Quinzenas reais (pela data de abertura da mesa); consumo de mesa aberta entra também.
+    let firstHalf = 0;
+    let secondHalf = 0;
+    tbls.forEach(t => {
+      const tableConsumo = t.status === 'closed' ? 0 : txs
+        .filter(tx => tx.table_id === t.id && tx.type === 'consumo')
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const value = (revenueByTable.get(t.id) ?? 0) + tableConsumo;
+      if (new Date(t.created_at).getDate() <= 15) firstHalf += value; else secondHalf += value;
+    });
+
+    const closedTables = tbls.filter(t => t.status === 'closed');
+    const avgRevenuePerTable = closedTables.length > 0
+      ? closedTables.reduce((sum, t) => sum + (revenueByTable.get(t.id) ?? 0), 0) / closedTables.length
+      : 0;
+    const avgPlayersPerTable = tablesCount > 0 ? sessions.length / tablesCount : 0;
+    const avgOpeningTime = averageClockTime(tbls.map(t => t.created_at));
+    const avgClosingTime = averageClockTime(closedTables.map(t => t.closed_at).filter(Boolean) as string[]);
     
     // Average table duration
     let totalDurationHours = 0;
@@ -173,13 +229,22 @@ export default function Analytics() {
 
     return {
       revenue,
+      rake,
+      inPlay,
+      openTablesCount,
       totalConsumo,
       tablesCount,
       uniquePlayers,
       totalBuyIn,
       totalCashOut,
       ticketMedio,
-      avgDuration
+      avgDuration,
+      firstHalf,
+      secondHalf,
+      avgRevenuePerTable,
+      avgPlayersPerTable,
+      avgOpeningTime,
+      avgClosingTime
     };
   };
 
@@ -293,7 +358,8 @@ export default function Analytics() {
         const cashOut = tableTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
         const consumo = tableTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
         
-        daysMap[matchedKey].revenue += (buyIn - cashOut) + consumo;
+        // Mesa aberta: só o consumo conta; buy-in − cash-out ainda inclui fichas em jogo.
+        daysMap[matchedKey].revenue += (t.status === 'closed' ? buyIn - cashOut : 0) + consumo;
       }
     });
 
@@ -478,9 +544,6 @@ export default function Analytics() {
 
   const insights = getInsights();
 
-  // Projections
-  const projectionRevenue = metrics.revenue * 1.08;
-  const projectionPlayers = Math.round(metrics.uniquePlayers * 1.05);
 
   const handleExport = (type: 'pdf' | 'excel') => {
     alert(`Preparando estrutura de exportação para formato ${type.toUpperCase()}... Disponível em breve.`);
@@ -695,7 +758,12 @@ export default function Analytics() {
                     <span className="text-xl md:text-2xl font-black text-white">{formatMoney(metrics.revenue)}</span>
                     {renderVariation(metrics.revenue, prevMetrics.revenue)}
                   </div>
-                  <p className="text-[10px] text-muted mt-2">Rake da mesa + Consumo da copa</p>
+                  <p className="text-[10px] text-muted mt-2">Rake das mesas encerradas + Consumo da copa</p>
+                  {metrics.openTablesCount > 0 && (
+                    <p className="text-[10px] text-warning mt-1">
+                      + {formatMoney(metrics.inPlay)} em jogo em {metrics.openTablesCount} mesa{metrics.openTablesCount > 1 ? 's' : ''} aberta{metrics.openTablesCount > 1 ? 's' : ''}
+                    </p>
+                  )}
                 </div>
 
                 <div className="glass-panel p-5 text-left border border-glass-border">
@@ -884,11 +952,11 @@ export default function Analytics() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-black bg-opacity-25 rounded-xl border border-glass-border">
                       <span className="text-[10px] text-muted font-bold uppercase block mb-1">Abertura Média</span>
-                      <span className="text-base font-black text-white">20h15</span>
+                      <span className="text-base font-black text-white">{metrics.avgOpeningTime ?? '—'}</span>
                     </div>
                     <div className="p-4 bg-black bg-opacity-25 rounded-xl border border-glass-border">
                       <span className="text-[10px] text-muted font-bold uppercase block mb-1">Encerramento Médio</span>
-                      <span className="text-base font-black text-white">03h50</span>
+                      <span className="text-base font-black text-white">{metrics.avgClosingTime ?? '—'}</span>
                     </div>
                     <div className="p-4 bg-black bg-opacity-25 rounded-xl border border-glass-border">
                       <span className="text-[10px] text-muted font-bold uppercase block mb-1">Média de Mesa</span>
@@ -903,26 +971,26 @@ export default function Analytics() {
                     <span className="text-[10px] font-bold text-muted uppercase block mb-3">Quinzenas</span>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted">1ª Quinzena (Proporcional):</span>
-                        <span className="font-extrabold text-white">{formatMoney(metrics.revenue * 0.48)}</span>
+                        <span className="text-muted">1ª Quinzena (dias 1–15):</span>
+                        <span className="font-extrabold text-white">{formatMoney(metrics.firstHalf)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted">2ª Quinzena (Proporcional):</span>
-                        <span className="font-extrabold text-white">{formatMoney(metrics.revenue * 0.52)}</span>
+                        <span className="text-muted">2ª Quinzena (dias 16–31):</span>
+                        <span className="font-extrabold text-white">{formatMoney(metrics.secondHalf)}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="glass-panel p-5 text-left border border-glass-border border-l-4 border-l-warning">
-                    <span className="text-[10px] font-bold text-muted uppercase block mb-3">Previsão Próximo Turno</span>
+                    <span className="text-[10px] font-bold text-muted uppercase block mb-3">Médias por Mesa no Período</span>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted">Receita Estimada:</span>
-                        <span className="font-extrabold text-warning">{formatMoney(projectionRevenue)}</span>
+                        <span className="text-muted">Receita por mesa encerrada:</span>
+                        <span className="font-extrabold text-warning">{formatMoney(metrics.avgRevenuePerTable)}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted">Jogadores Esperados:</span>
-                        <span className="font-extrabold text-warning">{projectionPlayers} clientes</span>
+                        <span className="text-muted">Jogadores por mesa:</span>
+                        <span className="font-extrabold text-warning">{metrics.avgPlayersPerTable.toFixed(1)}</span>
                       </div>
                     </div>
                   </div>

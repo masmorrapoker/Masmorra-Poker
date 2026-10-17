@@ -1,19 +1,21 @@
 import { supabase } from '../lib/supabase';
+import { fetchAll } from '../lib/fetchAll';
 import type { Table, Player } from '../types';
 
 export const tableService = {
   async getTables(clubId: string): Promise<Table[]> {
-    const { data, error } = await supabase
-      .from('tables')
-      .select('*')
-      .eq('club_id', clubId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      return await fetchAll<Table>((from, to) => supabase
+        .from('tables')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to));
+    } catch (error) {
       console.error('Error fetching tables:', error);
       throw error;
     }
-    return data || [];
   },
 
   async getTable(clubId: string, tableId: string): Promise<Table | null> {

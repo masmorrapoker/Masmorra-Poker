@@ -1,19 +1,21 @@
 import { supabase } from '../lib/supabase';
+import { fetchAll } from '../lib/fetchAll';
 import type { GlobalPlayer } from '../types';
 
 export const playerService = {
   async getPlayers(clubId: string): Promise<GlobalPlayer[]> {
-    const { data, error } = await supabase
-      .from('players')
-      .select('*')
-      .eq('club_id', clubId)
-      .order('name', { ascending: true });
-
-    if (error) {
+    try {
+      return await fetchAll<GlobalPlayer>((from, to) => supabase
+        .from('players')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('name', { ascending: true })
+        .order('id')
+        .range(from, to));
+    } catch (error) {
       console.error('Error fetching players:', error);
       throw error;
     }
-    return data || [];
   },
 
   async createPlayer(
@@ -136,15 +138,16 @@ export const playerService = {
   },
 
   async getAllTablePlayers(clubId: string): Promise<any[]> {
-    const { data, error } = await supabase
-      .from('table_players')
-      .select('*')
-      .eq('club_id', clubId);
-
-    if (error) {
+    try {
+      return await fetchAll<any>((from, to) => supabase
+        .from('table_players')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('id')
+        .range(from, to));
+    } catch (error) {
       console.error('Error fetching all table players:', error);
       throw error;
     }
-    return data || [];
   }
 };

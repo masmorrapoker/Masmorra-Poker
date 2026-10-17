@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import type { Transaction } from '../types';
+import { fetchAll } from '../lib/fetchAll';
+import type { Transaction, RemovedTransaction } from '../types';
 
 export const transactionService = {
   async getTransactions(clubId: string, tableId: string): Promise<Transaction[]> {
@@ -50,16 +51,37 @@ export const transactionService = {
     }
   },
 
-  async getAllTransactions(clubId: string): Promise<Transaction[]> {
+  /**
+   * Lançamentos removidos desta mesa (auditoria). Se a auditoria ainda não
+   * existir no banco, devolve lista vazia em vez de quebrar a tela.
+   */
+  async getRemovedTransactions(clubId: string, tableId: string): Promise<RemovedTransaction[]> {
     const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .eq('club_id', clubId);
+      .from('transactions_audit')
+      .select('id, transaction_id, old_data, changed_at')
+      .eq('club_id', clubId)
+      .eq('table_id', tableId)
+      .eq('action', 'DELETE')
+      .order('changed_at', { ascending: false });
 
     if (error) {
+      console.warn('Auditoria indisponível:', error.message);
+      return [];
+    }
+    return (data || []) as RemovedTransaction[];
+  },
+
+  async getAllTransactions(clubId: string): Promise<Transaction[]> {
+    try {
+      return await fetchAll<Transaction>((from, to) => supabase
+        .from('transactions')
+        .select('*')
+        .eq('club_id', clubId)
+        .order('id')
+        .range(from, to));
+    } catch (error) {
       console.error('Error fetching all club transactions:', error);
       throw error;
     }
-    return data || [];
   }
 };

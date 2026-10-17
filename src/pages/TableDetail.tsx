@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer } from '../types';
+import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer, RemovedTransaction } from '../types';
 import { UserPlus, XCircle, Search, UserCheck, Trash2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
 import { playerService } from '../services/playerService';
 import { clubSettingsService } from '../services/clubSettingsService';
-import { formatMoney, calculatePlayerBalance, isSamePlayer, isClosedTableError } from '../utils';
+import { formatMoney, formatDateTime, calculatePlayerBalance, isSamePlayer, isClosedTableError } from '../utils';
 import { useSubmitLock } from '../hooks/useSubmitLock';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
@@ -21,6 +21,7 @@ export default function TableDetail() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [globalPlayers, setGlobalPlayers] = useState<GlobalPlayer[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [removedTransactions, setRemovedTransactions] = useState<RemovedTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Collapsible states
@@ -127,6 +128,8 @@ export default function TableDetail() {
       setTable(tableData);
       setPlayers(playersData || []);
       setTransactions(txData || []);
+      // Auditoria em paralelo: se falhar, não atrapalha a operação da mesa.
+      transactionService.getRemovedTransactions(clubId, id).then(setRemovedTransactions);
     } catch (error) {
       console.error('Error fetching table details:', error);
     } finally {
@@ -369,7 +372,12 @@ export default function TableDetail() {
             <span className="text-sm font-extrabold text-danger">{formatMoney(totalConsumo)}</span>
           </div>
           <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-primary border-opacity-30">
-            <span className="text-[9px] text-primary uppercase font-bold block">Rake Estimado</span>
+            <span
+              className="text-[9px] text-primary uppercase font-bold block"
+              title={table.status === 'active' ? 'Mesa aberta: inclui fichas ainda em jogo. O rake final aparece quando todos fizerem cash-out e a mesa for encerrada.' : undefined}
+            >
+              {table.status === 'active' ? 'Na Mesa (parcial)' : 'Rake Final'}
+            </span>
             <span className={`text-sm font-extrabold ${rakeTableTotal >= 0 ? 'text-primary' : 'text-danger'}`}>
               {formatMoney(rakeTableTotal)}
             </span>
@@ -571,6 +579,32 @@ export default function TableDetail() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+
+              {removedTransactions.length > 0 && (
+                <div className="pt-3 border-t border-glass-border">
+                  <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-2">
+                    Lançamentos removidos ({removedTransactions.length})
+                  </span>
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {removedTransactions.map(rt => {
+                      const tx = rt.old_data;
+                      const pName = players.find(p => p.id === tx.player_id)?.name || 'Jogador';
+                      const typeLabel = tx.type === 'buy_in' ? 'Buy-in' : tx.type === 'cash_out' ? 'Cash-out' : 'Consumo';
+                      return (
+                        <div key={rt.id} className="p-2.5 rounded-xl border border-glass-border flex justify-between items-center text-xs opacity-70">
+                          <div>
+                            <span className="font-bold text-white block">{pName} · {typeLabel}{tx.description ? ` · ${tx.description}` : ''}</span>
+                            <span className="text-[10px] text-muted block mt-0.5">Removido em {formatDateTime(rt.changed_at)}</span>
+                          </div>
+                          <span className="font-bold text-muted" style={{ textDecoration: 'line-through' }}>
+                            {formatMoney(Number(tx.amount))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
