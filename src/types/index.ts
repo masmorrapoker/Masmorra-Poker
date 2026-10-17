@@ -46,3 +46,11 @@ export interface PlayerSummary {
   balance: number; // cashOut - buyIn - consumo
   hasCashOut?: boolean;
 }
+
+/** Lançamento removido, lido da auditoria (transactions_audit). */
+export interface RemovedTransaction {
+  id: number;
+  transaction_id: string;
+  old_data: Transaction;
+  changed_at: string;
+}
