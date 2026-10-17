@@ -80,11 +80,11 @@ export default function Home() {
     },
     {
       q: 'Posso usar em mais de um clube?',
-      a: 'Sim, o sistema possui suporte nativo multi-clube para proprietários que gerenciam mais de uma unidade. Cada clube possui seu ambiente, jogadores, mesas e caixas totalmente isolados e seguros.'
+      a: 'Cada clube tem o próprio ambiente, com jogadores, mesas e caixa totalmente isolados. Se você tem mais de uma unidade, cada uma recebe seu acesso separado.'
     },
     {
       q: 'Os dados ficam seguros?',
-      a: 'Absolutamente. Todas as comunicações são criptografadas e os dados são salvos na nuvem do Supabase, que possui infraestrutura de nível bancário e backups contínuos automáticos.'
+      a: 'Sim. A comunicação é criptografada (HTTPS), os dados ficam na nuvem do Supabase e cada operador entra com login próprio. Regras no banco de dados garantem que um clube nunca enxergue os dados de outro.'
     },
     {
       q: 'Preciso instalar algo?',
@@ -92,7 +92,7 @@ export default function Home() {
     },
     {
       q: 'Como funciona o suporte?',
-      a: 'Nosso suporte é realizado diretamente via WhatsApp com gerentes de contas dedicados para ajudar no onboarding, treinamento de operadores e dúvidas no dia a dia.'
+      a: 'O suporte é feito direto pelo WhatsApp, incluindo ajuda na implantação, no treinamento dos operadores e nas dúvidas do dia a dia.'
     },
     {
       q: 'Posso testar antes?',
@@ -265,18 +265,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Social Trust */}
-      <section className="lp-trust-section">
-        <div className="lp-trust-container">
-          <p className="lp-trust-title">Clubes que já estão profissionalizando sua operação</p>
-          <div className="lp-trust-list">
-            <span className="lp-trust-item">Masmorra Manager</span>
-            <span className="lp-trust-item">Caramelo's Poker</span>
-            <span className="lp-trust-item">Holy Cross Poker Club</span>
-          </div>
-        </div>
-      </section>
-
       {/* Seção - O Problema */}
       <section className="lp-section">
         <div className="lp-section-header">
@@ -441,7 +429,7 @@ export default function Home() {
             <div className="lp-timeline-card">
               <h3>1. Crie a mesa</h3>
               <p className="text-xs text-muted leading-relaxed">
-                Defina o nome da mesa, número e modalidade de jogo (ex: PLO5, Texas Holdem) no seu dashboard em segundos.
+                Dê um nome à mesa (ex.: "Mesa 1 – PLO5") e abra em segundos, direto do celular.
               </p>
             </div>
           </div>
@@ -592,8 +580,8 @@ export default function Home() {
             <p className="text-xs text-muted leading-relaxed">Consolide todas as transações financeiras em menos de 5 minutos.</p>
           </div>
           <div className="lp-rec-card">
-            <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Multi-clube</h3>
-            <p className="text-xs text-muted leading-relaxed">Gerencie mais de uma franquia ou unidade física de forma isolada.</p>
+            <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Clubes isolados</h3>
+            <p className="text-xs text-muted leading-relaxed">Cada clube tem seu próprio ambiente. Nenhum dado é compartilhado entre clubes.</p>
           </div>
           <div className="lp-rec-card">
             <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Sistema em nuvem</h3>
@@ -601,15 +589,15 @@ export default function Home() {
           </div>
           <div className="lp-rec-card">
             <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Login seguro</h3>
-            <p className="text-xs text-muted leading-relaxed">Sua conta protegida via Supabase Auth com níveis avançados de acesso.</p>
+            <p className="text-xs text-muted leading-relaxed">Login individual por operador, com regras de acesso aplicadas no próprio banco de dados.</p>
           </div>
           <div className="lp-rec-card">
             <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">100% Responsivo</h3>
             <p className="text-xs text-muted leading-relaxed">Experiência adaptada para celulares, tablets, computadores e monitores.</p>
           </div>
           <div className="lp-rec-card">
-            <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Backup automático</h3>
-            <p className="text-xs text-muted leading-relaxed">Seus dados e históricos protegidos contra falhas de hardware locais.</p>
+            <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Dados na nuvem</h3>
+            <p className="text-xs text-muted leading-relaxed">Nada fica salvo só no celular ou no computador do clube: se um aparelho quebrar, o histórico continua lá.</p>
           </div>
           <div className="lp-rec-card">
             <h3 className="text-xs font-bold text-white mb-2 uppercase tracking-wide">Atualizações contínuas</h3>
@@ -681,13 +669,13 @@ export default function Home() {
                 <Check size={16} className="text-primary flex-shrink-0" /> Relatórios Dinâmicos
               </li>
               <li className="flex items-center gap-3">
-                <Check size={16} className="text-primary flex-shrink-0" /> Multi-clube Integrado
+                <Check size={16} className="text-primary flex-shrink-0" /> Dados isolados por clube
               </li>
               <li className="flex items-center gap-3">
                 <Check size={16} className="text-primary flex-shrink-0" /> Atualizações Inclusas
               </li>
               <li className="flex items-center gap-3">
-                <Check size={16} className="text-primary flex-shrink-0" /> Suporte VIP via WhatsApp
+                <Check size={16} className="text-primary flex-shrink-0" /> Suporte via WhatsApp
               </li>
             </ul>
 
