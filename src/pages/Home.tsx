@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Check, Star, Menu, X, TrendingDown, Coffee,
+  Check, Menu, X, TrendingDown, Coffee,
   RefreshCw, CheckCircle, FileText, MessageSquare,
   HelpCircle, Activity, Landmark
 } from 'lucide-react';
@@ -187,11 +187,8 @@ export default function Home() {
             </div>
 
             <div className="lp-social-proof flex flex-col items-center sm:items-start text-center sm:text-left">
-              <div className="lp-stars">
-                {[...Array(5)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
-              </div>
               <p className="text-xs text-muted mb-0 font-medium">
-                Utilizado e aprovado por clubes de poker do Rio Grande do Sul.
+                Criado e usado no dia a dia do Masmorra Poker, no Rio Grande do Sul.
               </p>
             </div>
           </div>
@@ -204,6 +201,7 @@ export default function Home() {
                 <div className="lp-mock-dot bg-warning"></div>
                 <div className="lp-mock-dot bg-success"></div>
                 <span className="text-[10px] text-muted ml-2 font-mono">masmorramanager.com/table/vip-poker</span>
+                <span className="text-muted" style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Exemplo ilustrativo</span>
               </div>
               <div className="lp-table-view">
                 <div className="flex justify-between items-center mb-6">
@@ -359,6 +357,7 @@ export default function Home() {
               <div className="lp-mock-dot bg-warning"></div>
               <div className="lp-mock-dot bg-success"></div>
               <span className="text-[10px] text-muted ml-2 font-mono">Gerenciamento de Mesas</span>
+              <span className="text-muted" style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Exemplo ilustrativo</span>
             </div>
             <div className="p-4 bg-dark bg-opacity-65 rounded-xl border border-glass-border text-left">
               <div className="flex justify-between items-center mb-4">
@@ -406,6 +405,7 @@ export default function Home() {
               <div className="lp-mock-dot bg-warning"></div>
               <div className="lp-mock-dot bg-success"></div>
               <span className="text-[10px] text-muted ml-2 font-mono">Consumo da Copa</span>
+              <span className="text-muted" style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Exemplo ilustrativo</span>
             </div>
             <div className="p-4 bg-dark bg-opacity-65 rounded-xl border border-glass-border text-left">
               <p className="text-[10px] font-bold text-muted uppercase mb-3">Lançamento de Copa</p>
@@ -492,6 +492,7 @@ export default function Home() {
             <div className="lp-mock-dot bg-warning"></div>
             <div className="lp-mock-dot bg-success"></div>
             <span className="text-[10px] text-muted ml-2 font-mono">Estatísticas Gerais do Clube</span>
+            <span className="text-muted" style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Exemplo ilustrativo</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-left">
@@ -617,45 +618,33 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Depoimentos */}
+      {/* Origem do produto (sem depoimentos fictícios) */}
       <section className="lp-section border-t border-glass-border">
         <div className="lp-section-header">
-          <h2>Aprovado por proprietários de poker</h2>
-          <p>O que os donos de clubes de cash game dizem sobre a plataforma.</p>
+          <h2>Nascido dentro de um clube de verdade</h2>
+          <p>O Masmorra Manager foi criado para resolver a operação real do Masmorra Poker e é usado lá em cada noite de jogo.</p>
         </div>
 
         <div className="lp-dep-grid">
           <div className="lp-dep-card">
-            <div className="lp-stars mb-4">
-              {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
-            </div>
+            <p className="text-xs font-bold text-white mb-2">Feito na mesa, não na teoria</p>
             <p className="lp-dep-quote">
-              "O fechamento de caixa ficou muito mais rápido. Não usamos mais papel na mesa e agora eu controlo as movimentações mesmo viajando."
+              Cada tela nasceu de uma necessidade da operação: lançar buy-in, cash-out e consumo rápido no celular, com a mesa rodando.
             </p>
-            <p className="text-xs font-bold text-white mb-1">Gabriel Silveira</p>
-            <p className="text-[10px] text-muted">Masmorra Manager</p>
           </div>
 
           <div className="lp-dep-card">
-            <div className="lp-stars mb-4">
-              {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
-            </div>
+            <p className="text-xs font-bold text-white mb-2">Caixa conferível</p>
             <p className="lp-dep-quote">
-              "Consegui zerar a perda de faturamento do bar. A copa integrada funciona super bem com toque no tablet e meus operadores adoraram."
+              Todo lançamento fica no histórico da mesa, inclusive os removidos, com data e hora. Mesa encerrada não pode ser alterada.
             </p>
-            <p className="text-xs font-bold text-white mb-1">Enzo Azevedo</p>
-            <p className="text-[10px] text-muted">Aces High Arena</p>
           </div>
 
           <div className="lp-dep-card">
-            <div className="lp-stars mb-4">
-              {[...Array(5)].map((_, i) => <Star key={i} size={12} fill="currentColor" />)}
-            </div>
+            <p className="text-xs font-bold text-white mb-2">Dados de cada clube isolados</p>
             <p className="lp-dep-quote">
-              "Auditoria de saldo completa. Se há alguma diferença de caixa no final da noite, conseguimos conferir todo o histórico da mesa com cliques."
+              Cada clube acessa só os próprios dados, com login individual. Nenhum outro clube enxerga suas mesas, jogadores ou valores.
             </p>
-            <p className="text-xs font-bold text-white mb-1">Marta Linhares</p>
-            <p className="text-[10px] text-muted">Vegas Holdem Arena</p>
           </div>
         </div>
       </section>
