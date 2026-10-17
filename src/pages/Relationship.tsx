@@ -10,7 +10,7 @@ import { transactionService } from '../services/transactionService';
 import { clubSettingsService } from '../services/clubSettingsService';
 import { Link } from 'react-router-dom';
 import { DEFAULT_CRM_TEMPLATES, INACTIVITY_DAYS_OPTIONS, MARKETING_TEMPLATE_LABELS } from '../constants';
-import { formatMoney, formatDate, formatPhone, getDaysSinceLastVisit, calculatePlayerBalance } from '../utils';
+import { formatMoney, formatDate, formatPhone, getDaysSinceLastVisit, calculatePlayerBalance, isSamePlayer } from '../utils';
 
 interface PlayerCRMStats {
   player: GlobalPlayer;
@@ -138,7 +138,7 @@ export default function Relationship() {
 
   // Compile calculations for each player
   const playerStatsList: PlayerCRMStats[] = players.map(p => {
-    const sessions = tablePlayers.filter(tp => tp.name === p.name);
+    const sessions = tablePlayers.filter(tp => isSamePlayer(tp, p));
     const sessionIds = sessions.map(s => s.id);
     const playerTxs = transactions.filter(tx => sessionIds.includes(tx.player_id));
     const totalBuyIn = playerTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);

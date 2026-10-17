@@ -26,7 +26,7 @@ export const playerService = {
     const { data, error } = await supabase
       .from('players')
       .insert([{ 
-        name, 
+        name: name.trim(), 
         club_id: clubId, 
         phone: phone || null, 
         birth_date: birth_date || null, 
@@ -78,14 +78,25 @@ export const playerService = {
       
     if (pError) throw pError;
 
-    // 2. Find table_players entries for this name under the current club
-    const { data: tablePlayers, error: tpError } = await supabase
-      .from('table_players')
-      .select('*')
-      .eq('name', player.name)
-      .eq('club_id', clubId);
+    // 2. Registros de mesa deste jogador: pelo vínculo (player_id) e,
+    //    para registros antigos ainda sem vínculo, pelo nome.
+    const [byId, byLegacyName] = await Promise.all([
+      supabase
+        .from('table_players')
+        .select('*')
+        .eq('club_id', clubId)
+        .eq('player_id', player.id),
+      supabase
+        .from('table_players')
+        .select('*')
+        .eq('club_id', clubId)
+        .is('player_id', null)
+        .eq('name', player.name)
+    ]);
 
-    if (tpError) throw tpError;
+    if (byId.error) throw byId.error;
+    if (byLegacyName.error) throw byLegacyName.error;
+    const tablePlayers = [...(byId.data || []), ...(byLegacyName.data || [])];
 
     let tablesHistory: any[] = [];
     let transactions: any[] = [];

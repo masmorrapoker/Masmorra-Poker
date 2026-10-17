@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer } from '../types';
@@ -8,7 +8,8 @@ import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
 import { playerService } from '../services/playerService';
 import { clubSettingsService } from '../services/clubSettingsService';
-import { formatMoney, calculatePlayerBalance } from '../utils';
+import { formatMoney, calculatePlayerBalance, isSamePlayer, isClosedTableError } from '../utils';
+import { useSubmitLock } from '../hooks/useSubmitLock';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
 
@@ -38,6 +39,9 @@ export default function TableDetail() {
   const [editPlayerName, setEditPlayerName] = useState('');
   const [editPlayerPhone, setEditPlayerPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Trava síncrona contra toque duplo nos lançamentos (o estado acima é só visual).
+  const txLock = useRef(false);
+  const addPlayerLock = useSubmitLock();
 
   const [isClosingTable, setIsClosingTable] = useState(false);
   const [consumoItems, setConsumoItems] = useState<any[]>([]);
@@ -98,7 +102,7 @@ export default function TableDetail() {
   useEffect(() => {
     if (activePlayerAction) {
       setEditPlayerName(activePlayerAction.player.name);
-      const gp = globalPlayers.find(g => g.name === activePlayerAction.player.name);
+      const gp = globalPlayers.find(g => isSamePlayer(activePlayerAction.player, g));
       setEditPlayerPhone(gp?.phone || '');
     }
   }, [activePlayerAction, globalPlayers]);
@@ -140,25 +144,35 @@ export default function TableDetail() {
     }
   }
 
-  async function addPlayerToTable(playerName: string) {
-    if (!id || !clubId) return;
-    try {
-      await tableService.addPlayerToTable(clubId, id, playerName);
-      toast.success(`${playerName} adicionado na mesa!`);
-      triggerHaptic('success');
-      await fetchTableData();
-      setIsAddingPlayer(false);
-      setPlayerSearchTerm('');
-    } catch (error) {
-      toast.error('Erro ao adicionar jogador.');
-      console.error('Error adding player to table:', error);
-    }
+  async function addPlayerToTable(playerName: string, playerId?: string) {
+    if (!id || !clubId || !playerName.trim()) return;
+    await addPlayerLock.run(async () => {
+      try {
+        await tableService.addPlayerToTable(clubId, id, playerName, playerId);
+        toast.success(`${playerName.trim()} adicionado na mesa!`);
+        triggerHaptic('success');
+        await fetchTableData();
+        setIsAddingPlayer(false);
+        setPlayerSearchTerm('');
+      } catch (error) {
+        if (error instanceof Error && error.message === 'ALREADY_AT_TABLE') {
+          toast.error(`${playerName.trim()} já está nesta mesa.`);
+        } else if (isClosedTableError(error)) {
+          toast.error('Mesa encerrada: não é possível adicionar jogadores.');
+        } else {
+          toast.error('Erro ao adicionar jogador.');
+        }
+        console.error('Error adding player to table:', error);
+      }
+    });
   }
 
   async function saveTransaction(e?: React.FormEvent) {
     if (e) e.preventDefault();
     const amount = parseFloat(txAmount);
     if (isNaN(amount) || amount < 0 || (activeActionType === 'buy_in' && amount === 0) || !id || !clubId || isSubmitting || !activePlayerAction) return;
+    if (txLock.current) return;
+    txLock.current = true;
 
     setIsSubmitting(true);
     try {
@@ -180,15 +194,18 @@ export default function TableDetail() {
       setTxDescription('');
       await fetchTableData();
     } catch (error) {
-      toast.error('Erro ao registrar.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: lançamento não permitido.' : 'Erro ao registrar.');
       console.error('Error saving transaction:', error);
     } finally {
+      txLock.current = false;
       setIsSubmitting(false);
     }
   }
 
   async function registerConsumo(itemName: string, amount: number) {
     if (!id || !clubId || isSubmitting || !activePlayerAction) return;
+    if (txLock.current) return;
+    txLock.current = true;
     setIsSubmitting(true);
     try {
       await transactionService.createTransaction(clubId, {
@@ -208,9 +225,10 @@ export default function TableDetail() {
       setTxDescription('');
       await fetchTableData();
     } catch (error) {
-      toast.error('Erro ao lançar consumo.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: lançamento não permitido.' : 'Erro ao lançar consumo.');
       console.error('Error saving consumo:', error);
     } finally {
+      txLock.current = false;
       setIsSubmitting(false);
     }
   }
@@ -218,7 +236,7 @@ export default function TableDetail() {
   const handleEditPlayerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activePlayerAction || !clubId || !editPlayerName.trim()) return;
-    const gp = globalPlayers.find(g => g.name === activePlayerAction.player.name);
+    const gp = globalPlayers.find(g => isSamePlayer(activePlayerAction.player, g));
     if (!gp) return;
     try {
       await playerService.updatePlayer(clubId, gp.id, {
@@ -245,7 +263,7 @@ export default function TableDetail() {
       toast.success('Transação removida!');
       await fetchTableData();
     } catch (error) {
-      toast.error('Erro ao remover transação.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: não é possível remover lançamentos.' : 'Erro ao remover transação.');
       console.error('Error deleting transaction:', error);
     }
   }
@@ -296,11 +314,11 @@ export default function TableDetail() {
   const rakeTableTotal = totalBuyIn - totalCashOut; 
 
   const availablePlayersToAdd = globalPlayers.filter(
-    gp => !players.some(tp => tp.name === gp.name) && gp.name.toLowerCase().includes(playerSearchTerm.toLowerCase())
+    gp => !players.some(tp => isSamePlayer(tp, gp)) && gp.name.toLowerCase().includes(playerSearchTerm.trim().toLowerCase())
   );
   
   const showCreateOption = playerSearchTerm.trim().length > 0 && 
-    !globalPlayers.some(gp => gp.name.toLowerCase() === playerSearchTerm.toLowerCase());
+    !globalPlayers.some(gp => gp.name.trim().toLowerCase() === playerSearchTerm.trim().toLowerCase());
 
   if (loading) return <div className="flex justify-center p-20"><div className="spinner"></div></div>;
   if (!table) return <div className="container text-center p-20">Mesa não encontrada.</div>;
@@ -410,6 +428,8 @@ export default function TableDetail() {
                 <div 
                   key={summary.player.id}
                   onClick={() => {
+                    // Mesa encerrada: só consulta, sem abrir lançamentos.
+                    if (table.status !== 'active') return;
                     triggerHaptic('light');
                     setActivePlayerAction(summary);
                     setActiveActionType(null);
@@ -591,7 +611,8 @@ export default function TableDetail() {
                 <button 
                   key={gp.id}
                   className="w-full flex items-center justify-between p-3 rounded-xl bg-dark bg-opacity-50 text-white hover:bg-primary hover:text-white border border-glass-border text-left cursor-pointer active:scale-95 transition-all"
-                  onClick={() => addPlayerToTable(gp.name)}
+                  onClick={() => addPlayerToTable(gp.name, gp.id)}
+                  disabled={addPlayerLock.busy}
                   style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid var(--glass-border)' }}
                 >
                   <span className="font-bold text-xs">{gp.name}</span>
@@ -603,6 +624,7 @@ export default function TableDetail() {
                 <button 
                   className="w-full flex items-center gap-2 p-3 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition-colors text-left cursor-pointer active:scale-95 transition-all"
                   onClick={() => addPlayerToTable(playerSearchTerm)}
+                  disabled={addPlayerLock.busy}
                 >
                   <UserPlus size={18} />
                   <span className="font-bold text-xs">Cadastrar "{playerSearchTerm}"</span>
