@@ -271,7 +271,7 @@ export default function Relationship() {
               outline: 'none',
               boxShadow: 'none'
             }}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2 min-h-[40px] rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'crm' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
             }`}
             onClick={() => setActiveTab('crm')}
@@ -286,7 +286,7 @@ export default function Relationship() {
               outline: 'none',
               boxShadow: 'none'
             }}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2 min-h-[40px] rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'templates' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
             }`}
             onClick={() => setActiveTab('templates')}
@@ -301,7 +301,7 @@ export default function Relationship() {
               outline: 'none',
               boxShadow: 'none'
             }}
-            className={`px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            className={`px-4 py-2 min-h-[40px] rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'config' ? 'text-white shadow-sm' : 'text-muted hover:text-white hover:bg-white hover:bg-opacity-5'
             }`}
             onClick={() => setActiveTab('config')}
@@ -389,7 +389,7 @@ export default function Relationship() {
                     <button
                       key={chip.key}
                       onClick={() => setFilterType(chip.key as any)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-all cursor-pointer border ${
+                      className={`px-3 py-1.5 min-h-[40px] rounded-lg text-[11px] font-extrabold uppercase tracking-wider transition-all cursor-pointer border ${
                         filterType === chip.key
                           ? 'bg-primary text-white border-primary'
                           : 'bg-dark bg-opacity-40 text-muted border-glass-border hover:text-white'

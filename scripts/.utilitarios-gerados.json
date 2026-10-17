@@ -252,6 +252,7 @@
 "md:text-base",
 "md:text-sm",
 "md:w-auto",
+"min-h-[40px]",
 "min-w-0",
 "ml-2",
 "ml-2.5",
