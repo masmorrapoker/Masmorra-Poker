@@ -1389,3 +1389,37 @@ img[src*="logo.png"]:hover {
   transform: scale(1.05);
 }
 
+
+/* ==========================================
+   Impressão / PDF do relatório da mesa
+   Imprime só o conteúdo marcado com .print-area, em fundo branco.
+   ========================================== */
+@media print {
+  body * { visibility: hidden !important; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .print-area * {
+    color: #000 !important;
+    background: transparent !important;
+    -webkit-text-fill-color: #000 !important;
+    border-color: #ccc !important;
+  }
+  .no-print { display: none !important; }
+  .modal-overlay { background: #fff !important; backdrop-filter: none !important; }
+}
+
+/* Tabela do relatório */
+.report-table th, .report-table td { white-space: nowrap; }
+.report-table caption { caption-side: top; }

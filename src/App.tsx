@@ -4,6 +4,7 @@ import TableDetail from './pages/TableDetail';
 import Players from './pages/Players';
 import PlayerProfile from './pages/PlayerProfile';
 import Relationship from './pages/Relationship';
+import Fiado from './pages/Fiado';
 import Inicio from './pages/Inicio';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
@@ -123,6 +124,14 @@ function MainApp() {
             !user ? <Navigate to="/login" replace /> : 
             clubError ? <ClubErrorView error={clubError} logout={logout} /> :
             <Layout><PlayerProfile /></Layout>
+          } 
+        />
+        <Route 
+          path="/fiado" 
+          element={
+            !user ? <Navigate to="/login" replace /> : 
+            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
+            <Layout><Fiado /></Layout>
           } 
         />
         <Route 

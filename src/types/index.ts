@@ -28,6 +28,8 @@ export interface Player {
 
 export type TransactionType = 'buy_in' | 'cash_out' | 'consumo';
 
+export type PaymentMethod = 'dinheiro' | 'pix' | 'cartao' | 'fiado';
+
 export interface Transaction {
   id: string;
   table_id: string;
@@ -35,6 +37,8 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   description?: string;
+  /** Forma de pagamento (null em lançamentos antigos ou sem informação) */
+  payment_method?: PaymentMethod | null;
   created_at: string;
 }
 
@@ -69,5 +73,29 @@ export interface TableEvent {
   description: string | null;
   ref_id: string | null;
   created_by: string | null;
+  created_at: string;
+}
+
+/** Saldo de fiado por jogador (visão fiado_saldos). */
+export interface FiadoBalance {
+  club_id: string;
+  player_id: string;
+  name: string;
+  phone: string | null;
+  devido: number;
+  pago: number;
+  saldo: number;
+  ultima_movimentacao: string | null;
+}
+
+/** Pagamento (quitação) de fiado. */
+export interface DebtSettlement {
+  id: string;
+  club_id: string;
+  player_id: string;
+  amount: number;
+  method: 'dinheiro' | 'pix' | 'cartao' | 'abatido_cashout';
+  note: string | null;
+  table_id: string | null;
   created_at: string;
 }
