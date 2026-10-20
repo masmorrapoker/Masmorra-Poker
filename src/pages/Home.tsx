@@ -768,8 +768,8 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 mt-12 pt-8 border-t border-glass-border flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-muted">
           <p>© 2026 Masmorra Manager. Todos os direitos reservados.</p>
           <div className="flex gap-4">
-            <a href="#" className="hover:text-white">Termos de Uso</a>
-            <a href="#" className="hover:text-white">Privacidade</a>
+            <a href="/termos" className="hover:text-white">Termos de Uso</a>
+            <a href="/privacidade" className="hover:text-white">Privacidade</a>
           </div>
         </div>
       </footer>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import TeamSettings from '../components/TeamSettings';
 import { useClub } from '../contexts/ClubContext';
 import { clubService } from '../services/clubService';
 import { clubSettingsService } from '../services/clubSettingsService';
 import { 
   Save, AlertCircle, CheckCircle, ArrowLeft, Settings as SettingsIcon, 
-  Upload, Calendar, DollarSign, Coffee, Sliders, Users2, Key, Trash, Edit, Plus
+  Upload, Calendar, DollarSign, Coffee, Sliders, Users2, Trash, Edit, Plus
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatMoney } from '../utils';
@@ -22,7 +23,10 @@ export default function Settings() {
   const navigate = useNavigate();
   
   // Navigation active tab
-  const [activeTab, setActiveTab] = useState<'geral' | 'funcionamento' | 'financeiro' | 'consumos' | 'personalizacao' | 'usuarios' | 'integracoes'>('geral');
+  const [activeTab, setActiveTab] = useState<'geral' | 'funcionamento' | 'financeiro' | 'consumos' | 'personalizacao' | 'usuarios'>(() => {
+    const aba = new URLSearchParams(window.location.search).get('aba');
+    return aba === 'equipe' ? 'usuarios' : aba === 'consumos' ? 'consumos' : 'geral';
+  });
 
   // Geral tab states
   const [name, setName] = useState('');
@@ -358,18 +362,10 @@ export default function Settings() {
             }`}
           >
             <Users2 size={18} />
-            <span>Usuários (Em breve)</span>
+            <span>Equipe</span>
           </button>
 
-          <button 
-            onClick={() => setActiveTab('integracoes')}
-            className={`w-full text-left p-3.5 rounded-xl font-bold text-sm flex items-center gap-3 transition-all ${
-              activeTab === 'integracoes' ? 'bg-primary text-white shadow-md' : 'bg-dark bg-opacity-40 text-muted border border-glass-border hover:bg-opacity-80'
-            }`}
-          >
-            <Key size={18} />
-            <span>Integrações (Em breve)</span>
-          </button>
+
         </div>
 
         {/* Configurations Dynamic Content Panel */}
@@ -392,6 +388,9 @@ export default function Settings() {
               </div>
             )}
 
+            {activeTab === 'usuarios' ? (
+              <TeamSettings />
+            ) : (
             <form onSubmit={handleSaveAllSettings}>
               
               {/* TAB GERAL */}
@@ -824,30 +823,8 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* TAB USUARIOS MOCK */}
-              {activeTab === 'usuarios' && (
-                <div className="py-8 text-center bg-black bg-opacity-25 rounded-2xl border border-glass-border">
-                  <Users2 className="mx-auto text-muted mb-3" size={40} opacity={0.6} />
-                  <h3 className="text-white font-bold text-base mb-1">Módulo de Gestão de Operadores</h3>
-                  <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
-                    Controle de permissões, múltiplos operadores por turno e logs de auditoria de caixa. Disponível nas próximas versões premium.
-                  </p>
-                </div>
-              )}
-
-              {/* TAB INTEGRACOES MOCK */}
-              {activeTab === 'integracoes' && (
-                <div className="py-8 text-center bg-black bg-opacity-25 rounded-2xl border border-glass-border">
-                  <Key className="mx-auto text-muted mb-3" size={40} opacity={0.6} />
-                  <h3 className="text-white font-bold text-base mb-1">Integrações de API Externas</h3>
-                  <p className="text-xs text-muted max-w-sm mx-auto leading-relaxed">
-                    Conecte sua copa ao WhatsApp Cloud API oficial, painéis de TV externos e gateways de PIX automático. Em breve.
-                  </p>
-                </div>
-              )}
-
               {/* Global Save Button (Omitted on sub tabs that are read-only mocks) */}
-              {activeTab !== 'usuarios' && activeTab !== 'integracoes' && (
+              {(
                 <button
                   type="submit"
                   className="btn btn-primary w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 mt-8 active:scale-95 transition-transform hover:shadow-lg cursor-pointer text-white"
@@ -865,6 +842,7 @@ export default function Settings() {
               )}
 
             </form>
+            )}
           </div>
         </div>
 
