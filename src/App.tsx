@@ -22,6 +22,7 @@ import { AlertCircle, LogOut, MessageCircle } from 'lucide-react';
 import Convite from './pages/Convite';
 import Admin from './pages/Admin';
 import Legal from './pages/Legal';
+import NovaSenha from './pages/NovaSenha';
 
 function ClubErrorView({ error, logout }: { error: string; logout: () => Promise<void> }) {
   return (
@@ -53,7 +54,7 @@ function MainApp() {
   const { loading: clubLoading } = useClub();
 
   // Premium Elegant Splash Screen
-  const onInvitePage = typeof window !== 'undefined' && window.location.pathname.startsWith('/convite/');
+  const onInvitePage = typeof window !== 'undefined' && (window.location.pathname.startsWith('/convite/') || window.location.pathname === '/nova-senha');
   if (authLoading || (user && clubLoading && !onInvitePage)) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#090d16' }}>
@@ -83,6 +84,7 @@ function MainApp() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={user ? <Navigate to="/inicio" replace /> : <Login />} />
         <Route path="/convite/:token" element={<Convite />} />
+        <Route path="/nova-senha" element={<NovaSenha />} />
         <Route path="/termos" element={<Legal kind="termos" />} />
         <Route path="/privacidade" element={<Legal kind="privacidade" />} />
 
