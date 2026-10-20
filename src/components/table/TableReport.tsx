@@ -1,7 +1,7 @@
 import { Copy, Download, Printer, X } from 'lucide-react';
 import type { PlayerSummary, Table, Transaction, Player } from '../../types';
 import type { TableTotals } from '../../lib/tableMath';
-import { formatDuration, mergeByPlayer } from '../../lib/tableMath';
+import { describeAcerto, formatDuration, mergeByPlayer } from '../../lib/tableMath';
 import { paymentLabel } from '../../lib/paymentMethods';
 import { downloadCSV, slug } from '../../lib/csv';
 import { formatMoney, formatDateTime } from '../../utils';
@@ -19,16 +19,24 @@ interface TableReportProps {
 
 const signed = (v: number) => `${v > 0 ? '+' : ''}${formatMoney(v)}`;
 
+/** Mesas antigas não têm acerto registrado; só mostra quando há informação. */
+const hasAcertoInfo = (list: PlayerSummary[]) =>
+  list.some(s => s.acerto && (s.acerto.method || s.acerto.fiado > 0 || s.acerto.abatido > 0));
+
 /** Texto do relatório para colar no WhatsApp (negrito com *asteriscos*). */
 export function buildReportText(clubName: string | null, table: Table, summaries: PlayerSummary[], totals: TableTotals): string {
   const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
+  const showAcerto = hasAcertoInfo(ranking);
   const lines = [
     `*${table.name}*${clubName ? ` · ${clubName}` : ''}`,
     `${formatDateTime(table.created_at)} · duração ${formatDuration(table)}`,
     table.status === 'active' ? '_Mesa ainda aberta: valores parciais_' : '',
     '',
     '*Resultado por jogador*',
-    ...ranking.map(s => `${s.player.name}: ${signed(s.balance)}${s.hasCashOut ? '' : ' (sem cash-out)'}`),
+    ...ranking.map(s => {
+      const extra = !s.hasCashOut ? ' (sem cash-out)' : showAcerto ? ` · ${describeAcerto(s)}` : '';
+      return `${s.player.name}: ${signed(s.balance)}${extra}`;
+    }),
     '',
     `Buy-ins: ${formatMoney(totals.buyIn)}`,
     `Cash-outs: ${formatMoney(totals.cashOut)}`,
@@ -36,11 +44,17 @@ export function buildReportText(clubName: string | null, table: Table, summaries
     `*Rake: ${formatMoney(totals.rake)}*`,
     `*Receita do clube: ${formatMoney(totals.revenue)}*`
   ];
-  if (totals.byMethod.some(m => m.method !== 'nao_informado')) {
-    lines.push('', '*Por forma de pagamento*');
+  if (showAcerto) {
+    lines.push('', '*Acertos*');
     totals.byMethod.forEach(m => {
-      lines.push(`${m.label}: entrou ${formatMoney(m.entradas)} · saiu ${formatMoney(m.saidas)}`);
+      const parts = [
+        m.entradas > 0 ? `recebido ${formatMoney(m.entradas)}` : '',
+        m.saidas > 0 ? `pago ${formatMoney(m.saidas)}` : ''
+      ].filter(Boolean);
+      lines.push(`${m.label}: ${parts.join(' · ')}`);
     });
+    if (totals.fiado > 0) lines.push(`Ficou no fiado: ${formatMoney(totals.fiado)}`);
+    if (totals.abatido > 0) lines.push(`Fiado abatido: ${formatMoney(totals.abatido)}`);
   }
   return lines.filter((l, i, arr) => !(l === '' && arr[i - 1] === '')).join('\n').trim();
 }
@@ -51,6 +65,7 @@ export function buildReportText(clubName: string | null, table: Table, summaries
  */
 export default function TableReport({ clubName, table, summaries, totals, transactions, players, onClose }: TableReportProps) {
   const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
+  const showAcerto = hasAcertoInfo(ranking);
 
   async function copyText() {
     const text = buildReportText(clubName, table, summaries, totals);
@@ -73,9 +88,14 @@ export default function TableReport({ clubName, table, summaries, totals, transa
         typeLabel[tx.type],
         Number(tx.amount),
         tx.type === 'consumo' ? '' : paymentLabel(tx.payment_method),
+        tx.type === 'cash_out' ? Number(tx.fiado_amount ?? 0) : '',
         tx.description ?? ''
       ]);
-    downloadCSV(`${slug(table.name)}-lancamentos`, ['Data/hora', 'Jogador', 'Tipo', 'Valor (R$)', 'Forma de pagamento', 'Descrição'], rows);
+    downloadCSV(
+      `${slug(table.name)}-lancamentos`,
+      ['Data/hora', 'Jogador', 'Tipo', 'Valor (R$)', 'Forma do acerto', 'Ficou no fiado (R$)', 'Descrição'],
+      rows
+    );
   }
 
   return (
@@ -132,6 +152,11 @@ export default function TableReport({ clubName, table, summaries, totals, transa
                   <th scope="row" className="py-2 pr-2 font-bold text-white">
                     {s.player.name}
                     {!s.hasCashOut && <span className="block text-[10px] text-warning font-semibold">sem cash-out</span>}
+                    {s.hasCashOut && showAcerto && (
+                      <span className={`block text-[10px] font-semibold ${s.acerto && s.acerto.fiado > 0 ? 'text-warning' : 'text-muted'}`}>
+                        {describeAcerto(s)}
+                      </span>
+                    )}
                   </th>
                   <td className="py-2 px-2 text-right text-white">{formatMoney(s.buyIn)}</td>
                   <td className="py-2 px-2 text-right text-white">{formatMoney(s.cashOut)}</td>
@@ -145,18 +170,32 @@ export default function TableReport({ clubName, table, summaries, totals, transa
           </table>
         </div>
 
-        {totals.byMethod.some(m => m.method !== 'nao_informado') && (
+        {showAcerto && (
           <div className="mb-5 text-left">
-            <p className="text-xs text-muted mb-2">Por forma de pagamento (buy-ins recebidos e cash-outs pagos)</p>
+            <p className="text-xs text-muted mb-2">Acertos na saída</p>
             <ul className="space-y-1">
               {totals.byMethod.map(m => (
-                <li key={m.method} className="flex justify-between text-xs border-t border-glass-border py-1.5">
-                  <span className={`font-bold ${m.method === 'fiado' ? 'text-warning' : 'text-white'}`}>{m.label}</span>
-                  <span className="text-muted">
-                    entrou <strong className="text-white">{formatMoney(m.entradas)}</strong> · saiu <strong className="text-white">{formatMoney(m.saidas)}</strong>
+                <li key={m.method} className="flex justify-between gap-3 text-xs border-t border-glass-border py-1.5">
+                  <span className="font-bold text-white">{m.label}</span>
+                  <span className="text-muted text-right">
+                    {m.entradas > 0 && <>recebido <strong className="text-success">{formatMoney(m.entradas)}</strong></>}
+                    {m.entradas > 0 && m.saidas > 0 && ' · '}
+                    {m.saidas > 0 && <>pago <strong className="text-white">{formatMoney(m.saidas)}</strong></>}
                   </span>
                 </li>
               ))}
+              {totals.fiado > 0 && (
+                <li className="flex justify-between gap-3 text-xs border-t border-glass-border py-1.5">
+                  <span className="font-bold text-warning">Ficou no fiado</span>
+                  <strong className="text-warning">{formatMoney(totals.fiado)}</strong>
+                </li>
+              )}
+              {totals.abatido > 0 && (
+                <li className="flex justify-between gap-3 text-xs border-t border-glass-border py-1.5">
+                  <span className="font-bold text-white">Fiado antigo abatido</span>
+                  <strong className="text-white">{formatMoney(totals.abatido)}</strong>
+                </li>
+              )}
             </ul>
           </div>
         )}

@@ -37,8 +37,13 @@ export interface Transaction {
   type: TransactionType;
   amount: number;
   description?: string;
-  /** Forma de pagamento (null em lançamentos antigos ou sem informação) */
+  /**
+   * No cash-out: como o acerto foi pago/recebido (null = sem informação ou
+   * tudo no fiado). Lançamentos antigos podem ter forma no buy-in.
+   */
   payment_method?: PaymentMethod | null;
+  /** No cash-out: quanto do acerto o jogador ficou devendo (fiado). */
+  fiado_amount?: number;
   created_at: string;
 }
 
@@ -49,6 +54,21 @@ export interface PlayerSummary {
   consumo: number;
   balance: number; // cashOut - buyIn - consumo
   hasCashOut?: boolean;
+  /** Acerto feito na saída (só para quem já fez cash-out) */
+  acerto?: Acerto;
+}
+
+/**
+ * Acerto do jogador na saída. O resultado (balance) é acertado assim:
+ *  - perdeu: paidIn (pago na hora) + fiado (ficou devendo) = −resultado
+ *  - ganhou: paidOut (pago pelo clube) + abatido (fiado antigo descontado) = resultado
+ */
+export interface Acerto {
+  method: PaymentMethod | null;
+  paidIn: number;
+  paidOut: number;
+  fiado: number;
+  abatido: number;
 }
 
 /** Lançamento removido, lido da auditoria (transactions_audit). */
@@ -97,5 +117,7 @@ export interface DebtSettlement {
   method: 'dinheiro' | 'pix' | 'cartao' | 'abatido_cashout';
   note: string | null;
   table_id: string | null;
+  /** Cash-out em que o fiado foi abatido (some junto se o cash-out for removido) */
+  transaction_id?: string | null;
   created_at: string;
 }

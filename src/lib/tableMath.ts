@@ -1,5 +1,6 @@
-import type { Player, PlayerSummary, Table, Transaction } from '../types';
+import type { Acerto, DebtSettlement, Player, PlayerSummary, Table, Transaction } from '../types';
 import { PAYMENT_METHODS, type PaymentMethod } from './paymentMethods';
+import { formatMoney } from '../utils';
 
 /**
  * Cálculos da mesa num só lugar: a tela, o fechamento e o relatório usam as
@@ -12,7 +13,11 @@ import { PAYMENT_METHODS, type PaymentMethod } from './paymentMethods';
  *  - receita do clube na mesa = rake + consumo
  */
 
-export function summarizePlayers(players: Player[], transactions: Transaction[]): PlayerSummary[] {
+export function summarizePlayers(
+  players: Player[],
+  transactions: Transaction[],
+  settlements: Pick<DebtSettlement, 'amount' | 'transaction_id'>[] = []
+): PlayerSummary[] {
   return players.map(player => {
     const txs = transactions.filter(tx => tx.player_id === player.id);
     const sum = (type: Transaction['type']) =>
@@ -20,22 +25,66 @@ export function summarizePlayers(players: Player[], transactions: Transaction[])
     const buyIn = sum('buy_in');
     const cashOut = sum('cash_out');
     const consumo = sum('consumo');
+    const balance = cashOut - buyIn - consumo;
+    const cashOuts = txs
+      .filter(tx => tx.type === 'cash_out')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const hasCashOut = cashOuts.length > 0;
     return {
       player,
       buyIn,
       cashOut,
       consumo,
-      balance: cashOut - buyIn - consumo,
-      hasCashOut: txs.some(tx => tx.type === 'cash_out')
+      balance,
+      hasCashOut,
+      acerto: hasCashOut ? buildAcerto(balance, cashOuts, settlements) : undefined
     };
   });
+}
+
+function buildAcerto(
+  balance: number,
+  cashOuts: Transaction[],
+  settlements: Pick<DebtSettlement, 'amount' | 'transaction_id'>[]
+): Acerto {
+  const ids = new Set(cashOuts.map(tx => tx.id));
+  const fiado = cashOuts.reduce((s, tx) => s + Number(tx.fiado_amount ?? 0), 0);
+  const abatido = settlements
+    .filter(st => st.transaction_id && ids.has(st.transaction_id))
+    .reduce((s, st) => s + Number(st.amount), 0);
+  const method = [...cashOuts].reverse().find(tx => tx.payment_method)?.payment_method ?? null;
+  return {
+    method,
+    paidIn: balance < 0 ? Math.max(0, -balance - fiado) : 0,
+    paidOut: balance > 0 ? Math.max(0, balance - abatido) : 0,
+    fiado,
+    abatido
+  };
+}
+
+/** Texto curto do acerto, para a lista e o relatório. */
+export function describeAcerto(s: PlayerSummary): string {
+  const a = s.acerto;
+  if (!a) return 'Ainda jogando';
+  const how = a.method ? ` (${PAYMENT_METHODS.find(m => m.value === a.method)?.label})` : '';
+  const parts: string[] = [];
+  if (s.balance < 0) {
+    if (a.paidIn > 0) parts.push(`Pagou ${formatMoney(a.paidIn)}${how}`);
+    if (a.fiado > 0) parts.push(`Ficou devendo ${formatMoney(a.fiado)}`);
+  } else if (s.balance > 0) {
+    if (a.paidOut > 0) parts.push(`Recebeu ${formatMoney(a.paidOut)}${how}`);
+    if (a.abatido > 0) parts.push(`Abateu ${formatMoney(a.abatido)} de fiado`);
+  } else {
+    parts.push('Saiu no zero');
+  }
+  return parts.join(' · ');
 }
 
 export interface MethodTotals {
   method: PaymentMethod | 'nao_informado';
   label: string;
-  entradas: number; // buy-ins recebidos por esse meio
-  saidas: number;   // cash-outs pagos por esse meio
+  entradas: number; // acertos recebidos dos jogadores que perderam
+  saidas: number;   // acertos pagos aos jogadores que ganharam
 }
 
 export interface TableTotals {
@@ -49,31 +98,31 @@ export interface TableTotals {
   activeCount: number;
   closedCount: number;
   allCashedOut: boolean;
+  /** Acertos por forma de pagamento (só de quem já saiu) */
   byMethod: MethodTotals[];
-  /** Total de buy-in lançado como fiado nesta mesa */
+  /** Acertos que ficaram no fiado nesta mesa */
   fiado: number;
+  /** Fiado antigo abatido de quem saiu ganhando */
+  abatido: number;
 }
 
-export function computeTableTotals(summaries: PlayerSummary[], transactions: Transaction[]): TableTotals {
+export function computeTableTotals(summaries: PlayerSummary[]): TableTotals {
   const buyIn = summaries.reduce((s, p) => s + p.buyIn, 0);
   const cashOut = summaries.reduce((s, p) => s + p.cashOut, 0);
   const consumo = summaries.reduce((s, p) => s + p.consumo, 0);
   const activeCount = summaries.filter(p => !p.hasCashOut).length;
+  const acertos = summaries.map(s => s.acerto).filter((a): a is Acerto => Boolean(a));
 
   const keys: (PaymentMethod | 'nao_informado')[] = [...PAYMENT_METHODS.map(m => m.value), 'nao_informado'];
   const byMethod: MethodTotals[] = keys.map(key => {
-    const txs = transactions.filter(tx => tx.type !== 'consumo' && (tx.payment_method ?? 'nao_informado') === key);
+    const list = acertos.filter(a => (a.method ?? 'nao_informado') === key);
     return {
       method: key,
       label: key === 'nao_informado' ? 'Não informado' : PAYMENT_METHODS.find(m => m.value === key)!.label,
-      entradas: txs.filter(tx => tx.type === 'buy_in').reduce((s, tx) => s + Number(tx.amount), 0),
-      saidas: txs.filter(tx => tx.type === 'cash_out').reduce((s, tx) => s + Number(tx.amount), 0)
+      entradas: list.reduce((s, a) => s + a.paidIn, 0),
+      saidas: list.reduce((s, a) => s + a.paidOut, 0)
     };
   }).filter(m => m.entradas > 0 || m.saidas > 0);
-
-  const fiado = transactions
-    .filter(tx => tx.payment_method === 'fiado' && tx.type === 'buy_in')
-    .reduce((s, tx) => s + Number(tx.amount), 0);
 
   return {
     buyIn,
@@ -85,7 +134,8 @@ export function computeTableTotals(summaries: PlayerSummary[], transactions: Tra
     closedCount: summaries.length - activeCount,
     allCashedOut: summaries.length > 0 && activeCount === 0,
     byMethod,
-    fiado
+    fiado: acertos.reduce((s, a) => s + a.fiado, 0),
+    abatido: acertos.reduce((s, a) => s + a.abatido, 0)
   };
 }
 
@@ -119,7 +169,16 @@ export function mergeByPlayer(summaries: PlayerSummary[]): PlayerSummary[] {
       cashOut: prev.cashOut + s.cashOut,
       consumo: prev.consumo + s.consumo,
       balance: prev.balance + s.balance,
-      hasCashOut: Boolean(prev.hasCashOut && s.hasCashOut)
+      hasCashOut: Boolean(prev.hasCashOut && s.hasCashOut),
+      acerto: prev.acerto && s.acerto
+        ? {
+            method: s.acerto.method ?? prev.acerto.method,
+            paidIn: prev.acerto.paidIn + s.acerto.paidIn,
+            paidOut: prev.acerto.paidOut + s.acerto.paidOut,
+            fiado: prev.acerto.fiado + s.acerto.fiado,
+            abatido: prev.acerto.abatido + s.acerto.abatido
+          }
+        : prev.acerto ?? s.acerto
     });
   }
   return [...groups.values()];

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, UserPlus } from 'lucide-react';
 import type { PlayerSummary } from '../../types';
 import { formatMoney } from '../../utils';
+import { describeAcerto } from '../../lib/tableMath';
 
 const signed = (v: number) => `${v > 0 ? '+' : ''}${formatMoney(v)}`;
 const tone = (v: number) => (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : 'text-muted');
@@ -74,7 +75,7 @@ export function ActivePlayers({ players, open, fiadoByTablePlayer, onSelect, onA
   );
 }
 
-export function FinishedPlayers({ players }: { players: PlayerSummary[] }) {
+export function FinishedPlayers({ players, showAcerto = false }: { players: PlayerSummary[]; showAcerto?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   if (players.length === 0) return null;
   return (
@@ -98,6 +99,9 @@ export function FinishedPlayers({ players }: { players: PlayerSummary[] }) {
               <span className="min-w-0">
                 <span className="font-bold text-sm text-white block truncate">{s.player.name}</span>
                 <span className="text-xs text-muted block">Buy-in {formatMoney(s.buyIn)} · Cash-out {formatMoney(s.cashOut)}</span>
+                {showAcerto && s.acerto && (s.acerto.method || s.acerto.fiado > 0 || s.acerto.abatido > 0) && (
+                  <span className={`text-xs block ${s.acerto.fiado > 0 ? 'text-warning' : 'text-muted'}`}>{describeAcerto(s)}</span>
+                )}
               </span>
               <span className={`text-sm font-bold flex-shrink-0 ${tone(s.balance)}`}>{signed(s.balance)}</span>
             </li>

@@ -57,9 +57,9 @@ export const fiadoService = {
       ids.length
         ? supabase
             .from('transactions')
-            .select('id, type, amount, description, table_id, created_at')
+            .select('id, type, amount, fiado_amount, payment_method, description, table_id, created_at')
             .eq('club_id', clubId)
-            .eq('payment_method', 'fiado')
+            .or('payment_method.eq.fiado,fiado_amount.gt.0')
             .in('player_id', ids)
         : Promise.resolve({ data: [] as Partial<Transaction>[], error: null }),
       supabase
@@ -76,8 +76,13 @@ export const fiadoService = {
       ...((txRes.data || []) as Transaction[]).map(tx => ({
         kind: 'fiado' as const,
         id: tx.id,
-        amount: Number(tx.amount),
-        label: tx.type === 'buy_in' ? 'Buy-in no fiado' : `Consumo no fiado${tx.description ? ` · ${tx.description}` : ''}`,
+        amount: tx.type === 'cash_out' ? Number(tx.fiado_amount ?? 0) : Number(tx.amount),
+        label:
+          tx.type === 'cash_out'
+            ? 'Ficou devendo no acerto'
+            : tx.type === 'buy_in'
+              ? 'Buy-in no fiado'
+              : `Consumo no fiado${tx.description ? ` · ${tx.description}` : ''}`,
         table_id: tx.table_id,
         created_at: tx.created_at,
         removable: false
@@ -95,9 +100,27 @@ export const fiadoService = {
     return entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
+  /** Abatimentos e pagamentos ligados a uma mesa (lista vazia se o recurso não existir). */
+  async getTableSettlements(clubId: string, tableId: string): Promise<DebtSettlement[]> {
+    const { data, error } = await supabase
+      .from('debt_settlements')
+      .select('*')
+      .eq('club_id', clubId)
+      .eq('table_id', tableId);
+    if (error) return [];
+    return (data || []) as DebtSettlement[];
+  },
+
   async registerPayment(
     clubId: string,
-    payment: { player_id: string; amount: number; method: SettlementMethod; note?: string | null; table_id?: string | null }
+    payment: {
+      player_id: string;
+      amount: number;
+      method: SettlementMethod;
+      note?: string | null;
+      table_id?: string | null;
+      transaction_id?: string | null;
+    }
   ): Promise<void> {
     const { error } = await supabase.from('debt_settlements').insert([{
       club_id: clubId,
@@ -105,7 +128,8 @@ export const fiadoService = {
       amount: payment.amount,
       method: payment.method,
       note: payment.note?.trim() || null,
-      table_id: payment.table_id ?? null
+      table_id: payment.table_id ?? null,
+      ...(payment.transaction_id ? { transaction_id: payment.transaction_id } : {})
     }]);
     if (error) throw error;
   },

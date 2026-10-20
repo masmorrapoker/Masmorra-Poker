@@ -98,8 +98,8 @@ export default function Fiado() {
         <div className="glass-panel p-6">
           <p className="text-white font-bold mb-2">O controle de fiado ainda não foi ativado.</p>
           <p className="text-sm text-muted mb-0">
-            Ele depende de uma atualização do banco de dados (pagamentos e fiado). Depois de aplicada, os buy-ins
-            marcados como fiado aparecem aqui com o saldo de cada jogador.
+            Ele depende de uma atualização do banco de dados (acerto na saída). Depois de aplicada, quem sair
+            perdendo e ficar devendo aparece aqui com o saldo.
           </p>
         </div>
       </div>
@@ -149,7 +149,8 @@ export default function Fiado() {
           <HandCoins className="mx-auto text-muted mb-3" size={32} aria-hidden="true" />
           <p className="text-white font-bold mb-1">{balances.length === 0 ? 'Nenhum fiado registrado.' : 'Ninguém devendo.'}</p>
           <p className="text-sm text-muted mb-0">
-            Para lançar no fiado, escolha <strong className="text-white">Fiado</strong> como forma de pagamento ao registrar o buy-in na mesa.
+            Quando um jogador sair perdendo e não pagar na hora, escolha <strong className="text-white">Fica devendo</strong> no
+            acerto do cash-out. O valor aparece aqui até ser pago.
           </p>
         </div>
       ) : (
@@ -196,7 +197,7 @@ export default function Fiado() {
                 {isOpen && (
                   <div className="border-t border-glass-border p-4">
                     <p className="text-xs text-muted mb-3">
-                      Fiado lançado {formatMoney(b.devido)} · Pago {formatMoney(b.pago)} ·{' '}
+                      Ficou devendo {formatMoney(b.devido)} · Pago {formatMoney(b.pago)} ·{' '}
                       <Link to={`/player/${b.player_id}`} className="text-primary">ver perfil</Link>
                     </p>
                     {statement.length === 0 ? (

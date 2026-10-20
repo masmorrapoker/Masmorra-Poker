@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowDownCircle, ArrowUpCircle, Coffee, Pencil, UserMinus, X, AlertTriangle } from 'lucide-react';
 import type { PaymentMethod, PlayerSummary, TransactionType } from '../../types';
-import { PAYMENT_METHODS } from '../../lib/paymentMethods';
+import { SETTLE_IN_METHODS, SETTLE_OUT_METHODS } from '../../lib/paymentMethods';
 import { formatMoney } from '../../utils';
 import { triggerHaptic } from '../../utils/haptic';
 
@@ -15,13 +15,15 @@ export interface NewTransaction {
   amount: number;
   description?: string;
   payment_method?: PaymentMethod | null;
+  /** Cash-out: parte do acerto que ficou no fiado */
+  fiado_amount?: number;
 }
 
 interface PlayerActionSheetProps {
   summary: PlayerSummary;
   initialPhone: string;
   consumoItems: ConsumoItem[];
-  /** Formas de pagamento disponíveis no banco (migração aplicada) */
+  /** Acerto na saída e fiado disponíveis no banco (migrações aplicadas) */
   paymentsEnabled: boolean;
   /** Saldo de fiado em aberto do jogador (0 se nenhum) */
   fiadoBalance: number;
@@ -54,7 +56,8 @@ export default function PlayerActionSheet({
   const [mode, setMode] = useState<Mode>('menu');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
-  const [method, setMethod] = useState<PaymentMethod>('dinheiro');
+  const [method, setMethod] = useState<PaymentMethod>('pix');
+  const [paidNow, setPaidNow] = useState('');
   const [settleFiado, setSettleFiado] = useState(false);
   const [name, setName] = useState(summary.player.name);
   const [phone, setPhone] = useState(initialPhone);
@@ -69,7 +72,8 @@ export default function PlayerActionSheet({
     setAmount('');
     setDescription('');
     setSettleFiado(false);
-    setMethod('dinheiro');
+    setMethod('pix');
+    setPaidNow('');
     setMode(next);
   };
 
@@ -83,18 +87,30 @@ export default function PlayerActionSheet({
 
   const numeric = parseFloat(amount);
   const validAmount = !isNaN(numeric) && numeric >= 0 && !(mode === 'buy_in' && numeric === 0);
-  const fiadoToSettle = settleFiado ? Math.min(fiadoBalance, isNaN(numeric) ? 0 : numeric) : 0;
+
+  // Acerto na saída: resultado = fichas − buy-in − consumo
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const result = validAmount ? round2(numeric - summary.buyIn - summary.consumo) : 0;
+  const owes = Math.max(0, -result);
+  const wins = Math.max(0, result);
+  const outMethod: PaymentMethod = SETTLE_OUT_METHODS.some(m => m.value === method) ? method : 'pix';
+  const paidParsed = parseFloat(paidNow);
+  const paidIn = method === 'fiado' ? 0 : paidNow.trim() === '' || isNaN(paidParsed) ? owes : Math.min(owes, Math.max(0, paidParsed));
+  const fiadoNovo = round2(owes - paidIn);
+  const abatido = settleFiado ? Math.min(fiadoBalance, wins) : 0;
+  const payout = round2(wins - abatido);
 
   async function submitMoney(e: React.FormEvent) {
     e.preventDefault();
     if (!validAmount || submitting || (mode !== 'buy_in' && mode !== 'cash_out')) return;
+    if (mode === 'buy_in' || !paymentsEnabled) {
+      await onSubmit({ type: mode, amount: numeric });
+      return;
+    }
+    const payment_method = owes > 0 ? (paidIn > 0 ? method : null) : wins > 0 ? (payout > 0 ? outMethod : null) : null;
     await onSubmit(
-      {
-        type: mode,
-        amount: numeric,
-        payment_method: paymentsEnabled ? method : undefined
-      },
-      fiadoToSettle > 0 ? fiadoToSettle : undefined
+      { type: 'cash_out', amount: numeric, payment_method, fiado_amount: fiadoNovo > 0 ? fiadoNovo : 0 },
+      abatido > 0 ? abatido : undefined
     );
   }
 
@@ -110,8 +126,6 @@ export default function PlayerActionSheet({
     const ok = await onEditPlayer(name.trim(), phone.trim() || null);
     if (ok) setMode('menu');
   }
-
-  const methods = PAYMENT_METHODS.filter(m => !(mode === 'cash_out' && m.value === 'fiado'));
 
   return (
     <div className="modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="player-sheet-title" onClick={onClose}>
@@ -190,7 +204,7 @@ export default function PlayerActionSheet({
           <form onSubmit={submitMoney}>
             <div className="input-group mb-4">
               <label htmlFor="tx-amount" className="text-xs text-muted font-bold text-left block mb-2">
-                Valor do {mode === 'buy_in' ? 'buy-in' : 'cash-out'} (R$)
+                {mode === 'buy_in' ? 'Valor do buy-in (R$)' : 'Fichas na saída (R$)'}
               </label>
               <input
                 id="tx-amount"
@@ -227,56 +241,113 @@ export default function PlayerActionSheet({
               </button>
             </div>
 
-            {paymentsEnabled && (
-              <fieldset className="mb-4">
-                <legend className="text-xs text-muted font-bold text-left block mb-2">
-                  {mode === 'buy_in' ? 'Como o jogador pagou' : 'Como o clube pagou'}
-                </legend>
-                <div className={`grid gap-2 ${methods.length === 4 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  {methods.map(m => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      aria-pressed={method === m.value}
-                      onClick={() => { triggerHaptic('light'); setMethod(m.value); }}
-                      className={`py-3 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
-                        method === m.value
-                          ? m.value === 'fiado'
-                            ? 'bg-warning bg-opacity-20 border-warning text-warning'
-                            : 'bg-primary bg-opacity-20 border-primary text-white'
-                          : 'bg-white bg-opacity-5 border-glass-border text-muted'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                {mode === 'buy_in' && method === 'fiado' && (
-                  <p className="text-[11px] text-warning mt-2 text-left">
-                    O valor entra no fiado do jogador e aparece na tela Fiado até ser pago.
-                  </p>
-                )}
-              </fieldset>
-            )}
+            {mode === 'cash_out' && paymentsEnabled && validAmount && amount.trim() !== '' && (
+              <section aria-label="Acerto" className="mb-4 p-4 rounded-xl border border-glass-border text-left" style={{ background: 'rgba(15,23,42,0.5)' }}>
+                <p className="text-[11px] text-muted mb-1">
+                  Fichas {formatMoney(numeric)} − buy-in {formatMoney(summary.buyIn)}
+                  {summary.consumo > 0 && <> − consumo {formatMoney(summary.consumo)}</>}
+                </p>
 
-            {mode === 'cash_out' && fiadoBalance > 0 && (
-              <label className="mb-4 p-3 rounded-xl border border-warning border-opacity-25 bg-warning bg-opacity-10 flex items-start gap-3 text-left cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settleFiado}
-                  onChange={e => setSettleFiado(e.target.checked)}
-                  className="mt-0.5"
-                  style={{ width: 18, height: 18 }}
-                />
-                <span className="text-xs text-warning">
-                  Abater o fiado em aberto ({formatMoney(fiadoBalance)}) deste cash-out.
-                  {settleFiado && fiadoToSettle > 0 && (
-                    <strong className="block mt-1 text-white">
-                      Pagar ao jogador: {formatMoney(Math.max(0, numeric - fiadoToSettle))}
-                    </strong>
-                  )}
-                </span>
-              </label>
+                {owes > 0 && (
+                  <>
+                    <p className="text-base font-extrabold text-danger mb-3">Jogador paga {formatMoney(owes)}</p>
+                    <div className="grid grid-cols-4 gap-2" role="group" aria-label="Como o jogador pagou">
+                      {[...SETTLE_IN_METHODS, { value: 'fiado' as PaymentMethod, label: 'Fica devendo' }].map(m => (
+                        <button
+                          key={m.value}
+                          type="button"
+                          aria-pressed={method === m.value}
+                          onClick={() => { triggerHaptic('light'); setMethod(m.value); }}
+                          className={`py-3 rounded-xl text-[11px] font-bold border cursor-pointer transition-all ${
+                            method === m.value
+                              ? m.value === 'fiado'
+                                ? 'bg-warning bg-opacity-20 border-warning text-warning'
+                                : 'bg-primary bg-opacity-20 border-primary text-white'
+                              : 'bg-white bg-opacity-5 border-glass-border text-muted'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                    {method !== 'fiado' && (
+                      <label className="block mt-3">
+                        <span className="text-[11px] text-muted font-bold block mb-1">Quanto pagou agora (deixe vazio se pagou tudo)</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          max={owes}
+                          className="input text-sm py-2.5"
+                          placeholder={String(owes)}
+                          value={paidNow}
+                          onChange={e => setPaidNow(e.target.value)}
+                        />
+                      </label>
+                    )}
+                    {fiadoNovo > 0 && (
+                      <p className="text-xs text-warning font-bold mt-3 mb-0">
+                        {formatMoney(fiadoNovo)} vai para o fiado do jogador.
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {wins > 0 && (
+                  <>
+                    <p className="text-base font-extrabold text-success mb-3">Clube paga {formatMoney(wins)}</p>
+                    {fiadoBalance > 0 && (
+                      <label className="mb-3 flex items-start gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settleFiado}
+                          onChange={e => setSettleFiado(e.target.checked)}
+                          className="mt-0.5"
+                          style={{ width: 18, height: 18 }}
+                        />
+                        <span className="text-xs text-warning">
+                          Descontar o fiado em aberto ({formatMoney(fiadoBalance)})
+                        </span>
+                      </label>
+                    )}
+                    {payout > 0 ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2" role="group" aria-label="Como o clube pagou">
+                          {SETTLE_OUT_METHODS.map(m => (
+                            <button
+                              key={m.value}
+                              type="button"
+                              aria-pressed={outMethod === m.value}
+                              onClick={() => { triggerHaptic('light'); setMethod(m.value); }}
+                              className={`py-3 rounded-xl text-xs font-bold border cursor-pointer transition-all ${
+                                outMethod === m.value
+                                  ? 'bg-primary bg-opacity-20 border-primary text-white'
+                                  : 'bg-white bg-opacity-5 border-glass-border text-muted'
+                              }`}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+                        {abatido > 0 && (
+                          <p className="text-xs text-white font-bold mt-3 mb-0">
+                            Pagar ao jogador: {formatMoney(payout)} ({formatMoney(abatido)} abatidos do fiado)
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-white font-bold mb-0">
+                        Todo o prêmio ({formatMoney(abatido)}) abate o fiado. Nada a pagar ao jogador.
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {owes === 0 && wins === 0 && (
+                  <p className="text-sm font-bold text-white mb-0">Saiu no zero. Nada a acertar.</p>
+                )}
+              </section>
             )}
 
             <div className="flex flex-col md:flex-row gap-3 mt-4">

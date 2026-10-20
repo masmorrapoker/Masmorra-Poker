@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer, TableEvent } from '../types';
+import type { DebtSettlement, Table, Player, Transaction, PlayerSummary, GlobalPlayer, TableEvent } from '../types';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
@@ -37,6 +37,7 @@ export default function TableDetail() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [events, setEvents] = useState<TableEvent[]>([]);
   const [consumoItems, setConsumoItems] = useState<ConsumoItem[]>([]);
+  const [settlements, setSettlements] = useState<DebtSettlement[]>([]);
   const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -110,6 +111,7 @@ export default function TableDetail() {
       setPlayers(playersData || []);
       setTransactions(txData || []);
       tableService.getTableEvents(clubId, id).then(ev => setEvents(ev ?? []));
+      fiadoService.getTableSettlements(clubId, id).then(setSettlements);
     } catch (error) {
       console.error('Error fetching table details:', error);
     } finally {
@@ -127,10 +129,11 @@ export default function TableDetail() {
   }
 
   // Cálculos (mesma regra do relatório e do Analytics)
-  const summaries = useMemo(() => summarizePlayers(players, transactions), [players, transactions]);
-  const totals = useMemo(() => computeTableTotals(summaries, transactions), [summaries, transactions]);
+  const summaries = useMemo(() => summarizePlayers(players, transactions, settlements), [players, transactions, settlements]);
+  const totals = useMemo(() => computeTableTotals(summaries), [summaries]);
   const activeSummaries = summaries.filter(s => !s.hasCashOut);
   const finishedSummaries = summaries.filter(s => s.hasCashOut);
+  // Buy-ins lançados no fiado (modelo antigo, antes do acerto na saída)
   const fiadoByTablePlayer = useMemo(() => {
     const map: Record<string, number> = {};
     transactions
@@ -188,13 +191,14 @@ export default function TableDetail() {
     txLock.current = true;
     setBusy(true);
     try {
-      await transactionService.createTransaction(clubId, {
+      const created = await transactionService.createTransaction(clubId, {
         table_id: id,
         player_id: selected.player.id,
         type: tx.type,
         amount: tx.amount,
         description: tx.description,
-        ...(tx.payment_method ? { payment_method: tx.payment_method } : {})
+        ...(tx.payment_method ? { payment_method: tx.payment_method } : {}),
+        ...(tx.fiado_amount && tx.fiado_amount > 0 ? { fiado_amount: tx.fiado_amount } : {})
       });
 
       if (settleFiado && settleFiado > 0) {
@@ -204,14 +208,16 @@ export default function TableDetail() {
             player_id: gp.id,
             amount: settleFiado,
             method: 'abatido_cashout',
-            note: `Abatido no cash-out da ${table?.name ?? 'mesa'}`,
-            table_id: id
+            note: `Abatido no acerto da ${table?.name ?? 'mesa'}`,
+            table_id: id,
+            transaction_id: created.id
           });
         }
       }
 
       const label = tx.type === 'consumo' ? (tx.description || 'Consumo') : TYPE_LABEL[tx.type];
-      toast.success(`${label} de ${formatMoney(tx.amount)} registrado para ${selected.player.name}.`);
+      const fiadoMsg = tx.fiado_amount && tx.fiado_amount > 0 ? ` ${formatMoney(tx.fiado_amount)} ficou no fiado.` : '';
+      toast.success(`${label} de ${formatMoney(tx.amount)} registrado para ${selected.player.name}.${fiadoMsg}`);
       triggerHaptic('success');
       setSelected(null);
       await fetchTableData();
@@ -337,7 +343,7 @@ export default function TableDetail() {
           onAdd={() => { triggerHaptic('light'); setIsAddingPlayer(true); }}
         />
 
-        <FinishedPlayers players={finishedSummaries} />
+        <FinishedPlayers players={finishedSummaries} showAcerto={paymentsEnabled} />
 
         <section className="space-y-3">
           <button

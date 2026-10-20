@@ -28,7 +28,7 @@ export default function TableSummaryCard({ table, totals, paymentsEnabled, onClo
     }
   ];
   if (paymentsEnabled && totals.fiado > 0) {
-    stats.push({ label: 'Fiado na mesa', value: formatMoney(totals.fiado), tone: 'text-warning' });
+    stats.push({ label: 'Ficou no fiado', value: formatMoney(totals.fiado), tone: 'text-warning' });
   }
 
   return (
