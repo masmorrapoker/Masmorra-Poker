@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import type { GlobalPlayer, Table, Transaction } from '../types';
-import { ArrowLeft, History, DollarSign, TrendingUp, TrendingDown, Coffee, Calendar, Phone, Edit3 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import type { GlobalPlayer, Player, Table, Transaction } from '../types';
+import { AlertTriangle, ArrowLeft, Cake, History, Calendar, Phone, Edit3, HandCoins, Trophy } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { playerService } from '../services/playerService';
-import { formatMoney, formatDate, formatPhone, calculatePlayerBalance } from '../utils';
+import { fiadoService } from '../services/fiadoService';
+import { hasPaymentFeatures } from '../lib/paymentMethods';
+import { aggregatePlayers, buildSessions } from '../lib/playerStats';
+import { formatNight } from '../lib/nightMath';
+import { formatMoney, formatDate, formatPhone } from '../utils';
 import { LOCAL_STORAGE_KEYS } from '../constants';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
@@ -17,6 +21,8 @@ export default function PlayerProfile() {
   const [player, setPlayer] = useState<GlobalPlayer | null>(null);
   const [tablesHistory, setTablesHistory] = useState<(Table & { player_table_id: string })[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [tablePlayers, setTablePlayers] = useState<Player[]>([]);
+  const [fiado, setFiado] = useState(0);
   const [loading, setLoading] = useState(true);
   const { clubName } = useClub();
 
@@ -69,6 +75,8 @@ export default function PlayerProfile() {
       setPlayer(data.player);
       setTablesHistory(data.tablesHistory);
       setTransactions(data.transactions);
+      setTablePlayers(data.tablePlayers);
+      if (await hasPaymentFeatures()) setFiado(await fiadoService.getPlayerBalance(clubId, id));
     } catch (error) {
       console.error('Error fetching player profile:', error);
     } finally {
@@ -76,17 +84,29 @@ export default function PlayerProfile() {
     }
   }
 
+  // Uma sessão por mesa (linhas repetidas do mesmo jogador na mesma mesa são somadas)
+  const sessions = useMemo(
+    () => (player ? buildSessions(tablesHistory, tablePlayers, transactions, [player]) : [])
+      .sort((a, b) => new Date(b.table.created_at).getTime() - new Date(a.table.created_at).getTime()),
+    [player, tablesHistory, tablePlayers, transactions]
+  );
+  const stats = useMemo(() => aggregatePlayers(sessions)[0] ?? null, [sessions]);
+
   if (loading) return <div className="flex justify-center p-20"><div className="spinner"></div></div>;
   if (!player) return <div className="container text-center p-20">Jogador não encontrado.</div>;
 
-  // Calculate totals
-  const totalBuyIn = transactions.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
-  const totalCashOut = transactions.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
-  const totalConsumo = transactions.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-  
-  const balance = calculatePlayerBalance(totalBuyIn, totalCashOut, totalConsumo);
-  const isPositive = balance > 0;
-  const isNegative = balance < 0;
+  const balance = stats?.result ?? 0;
+  const tone = (v: number) => (v > 0 ? 'text-success' : v < 0 ? 'text-danger' : 'text-white');
+  const signed = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${formatMoney(Math.abs(v))}`;
+  const birthdayIn = (() => {
+    if (!player.birth_date) return null;
+    const [, m, d] = player.birth_date.split('-').map(Number);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let next = new Date(today.getFullYear(), m - 1, d);
+    if (next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+    return Math.round((next.getTime() - today.getTime()) / 86400000);
+  })();
 
   return (
     <div className="animate-fade-in max-w-4xl mx-auto mobile-view-padding">
@@ -99,8 +119,13 @@ export default function PlayerProfile() {
           <h1 className="mb-2">{player.name}</h1>
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-2 text-sm text-muted">
             <span>Membro desde {formatDate(player.created_at)}</span>
-            {player.phone && <span>• 📞 {player.phone}</span>}
-            {player.birth_date && <span>• 🎂 Aniversário: {formatDate(player.birth_date + 'T12:00:00')}</span>}
+            {player.phone && <span className="flex items-center gap-1"><Phone size={13} aria-hidden="true" /> {player.phone}</span>}
+            {player.birth_date && (
+              <span className={`flex items-center gap-1 ${birthdayIn !== null && birthdayIn <= 7 ? 'text-warning font-bold' : ''}`}>
+                <Cake size={13} aria-hidden="true" /> {formatDate(player.birth_date + 'T12:00:00').slice(0, 5)}
+                {birthdayIn === 0 ? ' · aniversário hoje' : birthdayIn !== null && birthdayIn <= 30 ? ` · em ${birthdayIn} dia${birthdayIn === 1 ? '' : 's'}` : ''}
+              </span>
+            )}
           </div>
           {player.notes && (
             <div className="mt-4 p-3 bg-black bg-opacity-35 rounded-xl text-sm border border-glass-border">
@@ -114,33 +139,57 @@ export default function PlayerProfile() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
-        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
-          <TrendingDown className="text-warning mb-2 animate-fade-in" size={28} />
-          <p className="text-xs md:text-sm text-muted mb-1">Total Buy-ins</p>
-          <p className="text-lg md:text-2xl font-bold text-warning">{formatMoney(totalBuyIn)}</p>
-        </div>
-        
-        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
-          <TrendingUp className="text-success mb-2 animate-fade-in" size={28} />
-          <p className="text-xs md:text-sm text-muted mb-1">Total Cash-outs</p>
-          <p className="text-lg md:text-2xl font-bold text-success">{formatMoney(totalCashOut)}</p>
-        </div>
+      {fiado > 0.005 && (
+        <Link
+          to="/fiado"
+          className="glass-panel mb-6 p-4 flex items-center justify-between gap-3 border border-warning border-opacity-25 no-underline"
+        >
+          <span className="flex items-center gap-2 text-sm text-warning font-bold">
+            <HandCoins size={18} /> Fiado em aberto
+          </span>
+          <span className="text-lg font-black text-warning">{formatMoney(fiado)}</span>
+        </Link>
+      )}
 
-        <div className="glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center">
-          <Coffee className="text-danger mb-2 animate-fade-in" size={28} />
-          <p className="text-xs md:text-sm text-muted mb-1">Total Consumo</p>
-          <p className="text-lg md:text-2xl font-bold text-danger">{formatMoney(totalConsumo)}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-3">
+        <div className={`glass-panel p-4 md:p-5 text-left border ${balance > 0 ? 'border-success' : balance < 0 ? 'border-danger' : 'border-glass-border'}`}>
+          <p className="text-xs text-muted mb-1">Resultado total</p>
+          <p className={`text-xl md:text-2xl font-black mb-0 ${tone(balance)}`}>{signed(balance)}</p>
         </div>
-
-        <div className={`glass-panel p-4 md:p-6 flex flex-col justify-center items-center text-center border ${isPositive ? 'border-success bg-success bg-opacity-5' : isNegative ? 'border-danger bg-danger bg-opacity-5' : 'border-glass-border'}`}>
-          <DollarSign className={isPositive ? 'text-success mb-2' : isNegative ? 'text-danger mb-2' : 'text-muted mb-2'} size={28} />
-          <p className="text-xs md:text-sm text-muted mb-1">Saldo Final</p>
-          <p className={`text-xl md:text-3xl font-bold ${isPositive ? 'text-success' : isNegative ? 'text-danger' : 'text-white'}`}>
-            {isPositive ? '+' : ''}{formatMoney(balance)}
+        <div className="glass-panel p-4 md:p-5 text-left">
+          <p className="text-xs text-muted mb-1">Noites jogadas</p>
+          <p className="text-xl md:text-2xl font-black text-white mb-0">{stats?.nights ?? 0}</p>
+        </div>
+        <div className="glass-panel p-4 md:p-5 text-left">
+          <p className="text-xs text-muted mb-1">Noites no lucro</p>
+          <p className="text-xl md:text-2xl font-black text-white mb-0">
+            {stats?.winRate != null ? `${Math.round(stats.winRate * 100)}%` : '—'}
           </p>
         </div>
+        <div className="glass-panel p-4 md:p-5 text-left">
+          <p className="text-xs text-muted mb-1">Consumo total</p>
+          <p className="text-xl md:text-2xl font-black text-white mb-0">{formatMoney(stats?.consumo ?? 0)}</p>
+        </div>
       </div>
+
+      <dl className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-8 text-left">
+        <div className="p-4 rounded-xl bg-black bg-opacity-20 border border-glass-border flex justify-between gap-3">
+          <dt className="text-xs text-muted">Maior prêmio numa noite</dt>
+          <dd className={`text-sm font-bold ${tone(stats?.bestNight ?? 0)}`}>{stats && stats.bestNight > 0 ? signed(stats.bestNight) : '—'}</dd>
+        </div>
+        <div className="p-4 rounded-xl bg-black bg-opacity-20 border border-glass-border flex justify-between gap-3">
+          <dt className="text-xs text-muted">Maior perda numa noite</dt>
+          <dd className={`text-sm font-bold ${tone(stats?.worstNight ?? 0)}`}>{stats && stats.worstNight < 0 ? signed(stats.worstNight) : '—'}</dd>
+        </div>
+        <div className="p-4 rounded-xl bg-black bg-opacity-20 border border-glass-border flex justify-between gap-3">
+          <dt className="text-xs text-muted">Buy-in médio por noite</dt>
+          <dd className="text-sm font-bold text-white">{stats && stats.nights > 0 ? formatMoney(stats.buyIn / stats.nights) : '—'}</dd>
+        </div>
+      </dl>
+
+      <Link to="/ranking" className="text-xs text-primary font-bold flex items-center gap-1.5 mb-8 no-underline">
+        <Trophy size={14} /> Ver ranking do clube
+      </Link>
 
       {/* Análise de Relacionamento Section */}
       {(() => {
@@ -215,7 +264,7 @@ export default function PlayerProfile() {
             {isInactive && (
               <div className="p-5 bg-warning bg-opacity-5 border border-warning border-opacity-20 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="text-left">
-                  <span className="text-xs font-bold text-warning uppercase block mb-1">⚠️ Jogador Inativo</span>
+                  <span className="text-xs font-bold text-warning block mb-1 flex items-center gap-1.5"><AlertTriangle size={14} /> Jogador inativo</span>
                   <p className="text-sm text-white mb-0" style={{ margin: 0 }}>
                     Este jogador está há <strong>{daysWithoutPlaying} dias</strong> sem visitar o clube.
                   </p>
@@ -258,45 +307,39 @@ export default function PlayerProfile() {
       <div className="glass-panel">
         <div className="flex items-center gap-2 mb-6">
           <History className="text-primary" size={24} />
-          <h2>Histórico de Mesas ({tablesHistory.length})</h2>
+          <h2>Histórico de mesas ({sessions.length})</h2>
         </div>
 
-        {tablesHistory.length === 0 ? (
+        {sessions.length === 0 ? (
           <p className="text-muted text-center py-6">Este jogador ainda não participou de nenhuma mesa.</p>
         ) : (
-          <div className="space-y-4">
-            {tablesHistory.map(t => {
-              const tableTxs = transactions.filter(tx => tx.player_id === t.player_table_id);
-              const tBuyIn = tableTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
-              const tCashOut = tableTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
-              const tConsumo = tableTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-              const tBalance = calculatePlayerBalance(tBuyIn, tCashOut, tConsumo);
-              
-              return (
-                <div key={t.id} className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex flex-col md:flex-row justify-between md:items-center gap-4 transition-colors hover:bg-opacity-60 cursor-pointer" onClick={() => navigate(`/table/${t.id}`)}>
-                  <div>
-                    <h3 className="text-lg mb-1">{t.name}</h3>
-                    <div className="flex items-center gap-2">
-                      <span className={`badge ${t.status === 'active' ? 'badge-active' : 'badge-closed'}`}>
-                        {t.status === 'active' ? 'Ativa' : 'Fechada'}
-                      </span>
-                      <span className="text-sm text-muted">
-                        {formatDate(t.created_at)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm bg-black bg-opacity-30 p-3 rounded-lg">
-                    <div className="text-center">
-                      <p className="text-muted text-xs mb-1">Resultado</p>
-                      <p className={`font-bold ${tBalance > 0 ? 'text-success' : tBalance < 0 ? 'text-danger' : 'text-white'}`}>
-                        {tBalance > 0 ? '+' : ''}{formatMoney(tBalance)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          <ul className="space-y-3">
+            {sessions.map(sess => (
+              <li key={sess.table.id}>
+                <Link
+                  to={`/table/${sess.table.id}`}
+                  className="p-4 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex justify-between items-center gap-4 hover:border-primary no-underline"
+                >
+                  <span className="min-w-0 text-left">
+                    <span className="text-sm font-bold text-white block truncate">{sess.table.name}</span>
+                    <span className="text-xs text-muted block capitalize">{formatNight(sess.night)}</span>
+                    <span className="text-xs text-muted block">
+                      Buy-in {formatMoney(sess.buyIn)} · Cash-out {formatMoney(sess.cashOut)}
+                      {sess.consumo > 0 && ` · Consumo ${formatMoney(sess.consumo)}`}
+                    </span>
+                    {sess.fiado > 0 && <span className="text-xs text-warning font-bold block">Ficou devendo {formatMoney(sess.fiado)}</span>}
+                  </span>
+                  <span className="text-right flex-shrink-0">
+                    {sess.finished ? (
+                      <span className={`text-base font-extrabold ${tone(sess.result)}`}>{signed(sess.result)}</span>
+                    ) : (
+                      <span className="badge badge-active">Jogando</span>
+                    )}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
         {isEditing && (
           <div className="modal-overlay animate-fade-in">
