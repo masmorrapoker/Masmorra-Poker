@@ -1394,6 +1394,9 @@ img[src*="logo.png"]:hover {
    Impressão / PDF do relatório da mesa
    Imprime só o conteúdo marcado com .print-area, em fundo branco.
    ========================================== */
+/* Só aparece na impressão */
+.print-only { display: none; }
+
 @media print {
   body * { visibility: hidden !important; }
   .print-area, .print-area * { visibility: visible !important; }
@@ -1417,6 +1420,7 @@ img[src*="logo.png"]:hover {
     border-color: #ccc !important;
   }
   .no-print { display: none !important; }
+  .print-only { display: block !important; }
   .modal-overlay { background: #fff !important; backdrop-filter: none !important; }
 }
 

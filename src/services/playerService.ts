@@ -134,7 +134,7 @@ export const playerService = {
       }
     }
 
-    return { player, tablesHistory, transactions };
+    return { player, tablesHistory, transactions, tablePlayers };
   },
 
   async getAllTablePlayers(clubId: string): Promise<any[]> {
