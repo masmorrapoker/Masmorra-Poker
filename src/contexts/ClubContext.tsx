@@ -35,12 +35,16 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<Role>('dono');
   const [isAdmin, setIsAdmin] = useState(false);
   const [paidUntil, setPaidUntil] = useState<string | null>(null);
+  // Para qual usuário os dados atuais foram carregados. Evita mostrar as telas
+  // com o papel do usuário anterior (ou nenhum) no instante logo após o login.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
 
   async function loadClubData() {
     if (!user) {
       setClub(null);
       setError(null);
       setLoading(false);
+      setLoadedFor(null);
       return;
     }
 
@@ -107,6 +111,7 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
       setClub(null);
     } finally {
       setLoading(false);
+      setLoadedFor(user.id);
     }
   }
 
@@ -126,7 +131,7 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
     clubLogo: club?.logo_url || null,
     beerPrice: club?.beer_price ?? 5.0,
     energyPrice: club?.energy_price ?? 8.0,
-    loading,
+    loading: loading || (!!user && loadedFor !== user.id),
     error,
     blocked,
     role,
