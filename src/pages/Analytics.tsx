@@ -9,7 +9,9 @@ import {
   Calendar, Users, TrendingUp, TrendingDown, Clock, 
   FileText, Activity, ShieldAlert, Sparkles, Filter, Coffee, BarChart3
 } from 'lucide-react';
-import { formatMoney, isSamePlayer } from '../utils';
+import { formatMoney, formatDateTime, isSamePlayer } from '../utils';
+import { downloadCSV } from '../lib/csv';
+import { paymentLabel } from '../lib/paymentMethods';
 
 /**
  * Horário médio (HHhMM) de uma lista de datas, tratando a virada da meia-noite:
@@ -546,11 +548,32 @@ export default function Analytics() {
 
 
   const handleExport = (type: 'pdf' | 'excel') => {
-    alert(`Preparando estrutura de exportação para formato ${type.toUpperCase()}... Disponível em breve.`);
+    if (type === 'pdf') {
+      window.print();
+      return;
+    }
+    // Planilha com todos os lançamentos do período filtrado.
+    const tableName = (id: string) => tables.find(t => t.id === id)?.name ?? '';
+    const playerName = (id: string) => tablePlayers.find(tp => tp.id === id)?.name ?? '';
+    const typeLabel: Record<string, string> = { buy_in: 'Buy-in', cash_out: 'Cash-out', consumo: 'Consumo' };
+    const rows = [...periodTxs]
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .map(tx => [
+        formatDateTime(tx.created_at),
+        tableName(tx.table_id),
+        playerName(tx.player_id),
+        typeLabel[tx.type] ?? tx.type,
+        Number(tx.amount),
+        tx.type === 'consumo' ? '' : paymentLabel(tx.payment_method),
+        tx.description ?? ''
+      ]);
+    const from = fromDate.toISOString().slice(0, 10);
+    const to = toDate.toISOString().slice(0, 10);
+    downloadCSV(`lancamentos-${from}-a-${to}`, ['Data/hora', 'Mesa', 'Jogador', 'Tipo', 'Valor (R$)', 'Forma de pagamento', 'Descrição'], rows);
   };
 
   return (
-    <div className="container animate-fade-in text-left max-w-7xl mx-auto px-4 py-2 space-y-6">
+    <div className="container animate-fade-in text-left max-w-7xl mx-auto px-4 py-2 space-y-6 print-area">
       
       {/* Header */}
       <div className="glass-panel border-t-4 border-t-primary flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -570,13 +593,13 @@ export default function Analytics() {
             onClick={() => handleExport('excel')}
             className="btn btn-outline btn-sm font-bold text-xs flex items-center gap-1.5 rounded-xl"
           >
-            <FileText size={14} /> Excel
+            <FileText size={14} /> Planilha
           </button>
           <button 
             onClick={() => handleExport('pdf')}
             className="btn btn-outline btn-sm font-bold text-xs flex items-center gap-1.5 rounded-xl"
           >
-            <FileText size={14} /> PDF
+            <FileText size={14} /> Imprimir / PDF
           </button>
         </div>
       </div>

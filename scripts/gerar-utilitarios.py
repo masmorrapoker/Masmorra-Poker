@@ -133,7 +133,7 @@ def base_rule(u: str):
         "cursor-pointer": "cursor: pointer;", "cursor-not-allowed": "cursor: not-allowed;",
         "pointer-events-none": "pointer-events: none;", "pointer-events-auto": "pointer-events: auto;",
         "select-none": "user-select: none;",
-        "w-auto": "width: auto;", "h-max": "height: max-content;", "w-max": "width: max-content;", "transform": "", "group": "", "h-auto": "height: auto;", "w-screen": "width: 100vw;",
+        "w-auto": "width: auto;", "flex-initial": "flex: 0 1 auto;", "flex-none": "flex: none;", "h-max": "height: max-content;", "w-max": "width: max-content;", "transform": "", "group": "", "h-auto": "height: auto;", "w-screen": "width: 100vw;",
         "h-screen": "height: 100vh;", "min-h-screen": "min-height: 100vh;", "min-w-0": "min-width: 0px;",
         "mx-auto": "margin-left: auto; margin-right: auto;", "ml-auto": "margin-left: auto;",
         "mr-auto": "margin-right: auto;", "mt-auto": "margin-top: auto;",

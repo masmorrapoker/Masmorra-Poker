@@ -1,130 +1,103 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { Table, Player, Transaction, PlayerSummary, GlobalPlayer, RemovedTransaction, TableEvent } from '../types';
-import ConfirmDialog from '../components/ConfirmDialog';
-import TableTimeline from '../components/TableTimeline';
-import { UserPlus, XCircle, Search, UserCheck, Trash2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import type { DebtSettlement, Table, Player, Transaction, PlayerSummary, GlobalPlayer, TableEvent } from '../types';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { transactionService } from '../services/transactionService';
 import { playerService } from '../services/playerService';
 import { clubSettingsService } from '../services/clubSettingsService';
-import { formatMoney, formatDateTime, calculatePlayerBalance, isSamePlayer, isClosedTableError } from '../utils';
-import { useSubmitLock } from '../hooks/useSubmitLock';
+import { fiadoService } from '../services/fiadoService';
+import { formatMoney, isSamePlayer, isClosedTableError } from '../utils';
+import { summarizePlayers, computeTableTotals } from '../lib/tableMath';
+import { hasPaymentFeatures } from '../lib/paymentMethods';
 import { triggerHaptic } from '../utils/haptic';
 import { toast } from '../components/Toast';
+import { useSubmitLock } from '../hooks/useSubmitLock';
+import ConfirmDialog from '../components/ConfirmDialog';
+import TableTimeline from '../components/TableTimeline';
+import TableSummaryCard from '../components/table/TableSummaryCard';
+import { ActivePlayers, FinishedPlayers } from '../components/table/PlayerLists';
+import AddPlayerSheet from '../components/table/AddPlayerSheet';
+import PlayerActionSheet, { type ConsumoItem, type NewTransaction } from '../components/table/PlayerActionSheet';
+import CloseTableDialog from '../components/table/CloseTableDialog';
+import TableReport from '../components/table/TableReport';
+
+const TYPE_LABEL = { buy_in: 'Buy-in', cash_out: 'Cash-out', consumo: 'Consumo' } as const;
 
 export default function TableDetail() {
   const { id } = useParams<{ id: string }>();
-  const { clubId, beerPrice, energyPrice } = useClub();
-  
+  const { clubId, clubName, beerPrice, energyPrice } = useClub();
+
+  // Dados
   const [table, setTable] = useState<Table | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [globalPlayers, setGlobalPlayers] = useState<GlobalPlayer[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [removedTransactions, setRemovedTransactions] = useState<RemovedTransaction[]>([]);
-  // Linha do tempo completa; null = histórico ainda não disponível no banco (modo antigo).
-  const [events, setEvents] = useState<TableEvent[] | null>(null);
-  // Confirmações dentro do app (substituem window.confirm).
+  const [events, setEvents] = useState<TableEvent[]>([]);
+  const [consumoItems, setConsumoItems] = useState<ConsumoItem[]>([]);
+  const [settlements, setSettlements] = useState<DebtSettlement[]>([]);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Interface
+  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [selected, setSelected] = useState<PlayerSummary | null>(null);
+  const [selectedFiado, setSelectedFiado] = useState(0);
+  const [isClosingTable, setIsClosingTable] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [pendingDeleteTxId, setPendingDeleteTxId] = useState<string | null>(null);
   const [pendingRemovePlayer, setPendingRemovePlayer] = useState<Player | null>(null);
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  
-  // Collapsible states
-  const [isAddingPlayer, setIsAddingPlayer] = useState(false);
-  const [playerSearchTerm, setPlayerSearchTerm] = useState('');
-  const [isClosedPlayersExpanded, setIsClosedPlayersExpanded] = useState(false);
-  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Player action overlay states
-  const [activePlayerAction, setActivePlayerAction] = useState<PlayerSummary | null>(null);
-  const [activeActionType, setActiveActionType] = useState<'buy_in' | 'cash_out' | 'consumo' | 'edit' | null>(null);
-
-  // Input states
-  const [txAmount, setTxAmount] = useState('');
-  const [txDescription, setTxDescription] = useState('');
-  const [editPlayerName, setEditPlayerName] = useState('');
-  const [editPlayerPhone, setEditPlayerPhone] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  // Trava síncrona contra toque duplo nos lançamentos (o estado acima é só visual).
+  // Trava síncrona contra toque duplo nos lançamentos (o estado `busy` é visual).
   const txLock = useRef(false);
   const addPlayerLock = useSubmitLock();
 
-  const [isClosingTable, setIsClosingTable] = useState(false);
-  const [consumoItems, setConsumoItems] = useState<any[]>([]);
-
-  // Load custom products and initialize table channels
   useEffect(() => {
-    if (id && clubId) {
-      fetchTableData();
-      fetchGlobalPlayers();
-      
-      clubSettingsService.getSettings(clubId)
-        .then(settings => {
-          if (settings && Array.isArray(settings.custom_products) && settings.custom_products.length > 0) {
-            setConsumoItems(settings.custom_products.filter((p: any) => p.active !== false));
-          } else {
-            setConsumoItems([
-              { name: 'Água', price: 0 },
-              { name: 'Água com gás', price: 0 },
-              { name: 'Coca-Cola', price: 5.0 },
-              { name: 'Coca-Cola Zero', price: 5.0 },
-              { name: 'Cerveja', price: beerPrice },
-              { name: 'Energético', price: energyPrice },
-            ]);
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          setConsumoItems([
-            { name: 'Água', price: 0 },
-            { name: 'Água com gás', price: 0 },
-            { name: 'Coca-Cola', price: 5.0 },
-            { name: 'Coca-Cola Zero', price: 5.0 },
-            { name: 'Cerveja', price: beerPrice },
-            { name: 'Energético', price: energyPrice },
-          ]);
-        });
-      
-      const tablesSub = supabase
-        .channel(`table_${id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${id}` }, () => fetchTableData())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'table_players', filter: `table_id=eq.${id}` }, () => fetchTableData())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `table_id=eq.${id}` }, () => fetchTableData())
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'table_events', filter: `table_id=eq.${id}` }, () => fetchTableData())
-        .subscribe();
+    if (!id || !clubId) return;
+    fetchTableData();
+    fetchGlobalPlayers();
+    hasPaymentFeatures().then(setPaymentsEnabled);
 
-      const playersSub = supabase
-        .channel('public:players')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `club_id=eq.${clubId}` }, () => fetchGlobalPlayers())
-        .subscribe();
+    const defaults: ConsumoItem[] = [
+      { name: 'Água', price: 0 },
+      { name: 'Água com gás', price: 0 },
+      { name: 'Coca-Cola', price: 5 },
+      { name: 'Coca-Cola Zero', price: 5 },
+      { name: 'Cerveja', price: beerPrice },
+      { name: 'Energético', price: energyPrice }
+    ];
+    clubSettingsService.getSettings(clubId)
+      .then(settings => {
+        const custom = Array.isArray(settings?.custom_products)
+          ? settings.custom_products.filter((p: { active?: boolean }) => p.active !== false)
+          : [];
+        setConsumoItems(custom.length > 0 ? custom.map((p: ConsumoItem) => ({ name: p.name, price: Number(p.price) })) : defaults);
+      })
+      .catch(() => setConsumoItems(defaults));
 
-      return () => {
-        supabase.removeChannel(tablesSub);
-        supabase.removeChannel(playersSub);
-      };
-    }
+    const tableChannel = supabase
+      .channel(`table_${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${id}` }, () => fetchTableData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_players', filter: `table_id=eq.${id}` }, () => fetchTableData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: `table_id=eq.${id}` }, () => fetchTableData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'table_events', filter: `table_id=eq.${id}` }, () => fetchTableData())
+      .subscribe();
+
+    const playersChannel = supabase
+      .channel(`players_${clubId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `club_id=eq.${clubId}` }, () => fetchGlobalPlayers())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tableChannel);
+      supabase.removeChannel(playersChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, clubId]);
-
-  // Sync edit form fields when a player is selected
-  useEffect(() => {
-    if (activePlayerAction) {
-      setEditPlayerName(activePlayerAction.player.name);
-      const gp = globalPlayers.find(g => isSamePlayer(activePlayerAction.player, g));
-      setEditPlayerPhone(gp?.phone || '');
-    }
-  }, [activePlayerAction, globalPlayers]);
-
-  const handleQuickAdd = (val: number) => {
-    triggerHaptic('light');
-    setTxAmount(prev => {
-      const current = parseFloat(prev);
-      if (isNaN(current) || current <= 0) return val.toString();
-      return (current + val).toString();
-    });
-  };
 
   async function fetchTableData() {
     if (!id || !clubId) return;
@@ -137,9 +110,8 @@ export default function TableDetail() {
       setTable(tableData);
       setPlayers(playersData || []);
       setTransactions(txData || []);
-      // Histórico em paralelo: se falhar, não atrapalha a operação da mesa.
-      transactionService.getRemovedTransactions(clubId, id).then(setRemovedTransactions);
-      tableService.getTableEvents(clubId, id).then(setEvents);
+      tableService.getTableEvents(clubId, id).then(ev => setEvents(ev ?? []));
+      fiadoService.getTableSettlements(clubId, id).then(setSettlements);
     } catch (error) {
       console.error('Error fetching table details:', error);
     } finally {
@@ -150,879 +122,297 @@ export default function TableDetail() {
   async function fetchGlobalPlayers() {
     if (!clubId) return;
     try {
-      const data = await playerService.getPlayers(clubId);
-      setGlobalPlayers(data);
+      setGlobalPlayers(await playerService.getPlayers(clubId));
     } catch (error) {
       console.error('Error fetching global players:', error);
     }
   }
 
-  async function addPlayerToTable(playerName: string, playerId?: string) {
-    if (!id || !clubId || !playerName.trim()) return;
+  // Cálculos (mesma regra do relatório e do Analytics)
+  const summaries = useMemo(() => summarizePlayers(players, transactions, settlements), [players, transactions, settlements]);
+  const totals = useMemo(() => computeTableTotals(summaries), [summaries]);
+  const activeSummaries = summaries.filter(s => !s.hasCashOut);
+  const finishedSummaries = summaries.filter(s => s.hasCashOut);
+  // Buy-ins lançados no fiado (modelo antigo, antes do acerto na saída)
+  const fiadoByTablePlayer = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions
+      .filter(tx => tx.payment_method === 'fiado' && tx.type === 'buy_in')
+      .forEach(tx => { map[tx.player_id] = (map[tx.player_id] ?? 0) + Number(tx.amount); });
+    return map;
+  }, [transactions]);
+
+  const globalOf = (p: Player) => globalPlayers.find(g => isSamePlayer(p, g));
+
+  async function openPlayer(summary: PlayerSummary) {
+    if (table?.status !== 'active') return;
+    triggerHaptic('light');
+    setSelected(summary);
+    setSelectedFiado(0);
+    const gp = globalOf(summary.player);
+    if (paymentsEnabled && clubId && gp) {
+      setSelectedFiado(await fiadoService.getPlayerBalance(clubId, gp.id));
+    }
+  }
+
+  // Mantém o jogador selecionado atualizado quando os lançamentos mudam.
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = summaries.find(s => s.player.id === selected.player.id);
+    if (fresh && (fresh.buyIn !== selected.buyIn || fresh.consumo !== selected.consumo || fresh.player.name !== selected.player.name)) {
+      setSelected(fresh);
+    }
+  }, [summaries, selected]);
+
+  async function addPlayer(name: string, playerId?: string) {
+    if (!id || !clubId || !name.trim()) return;
     await addPlayerLock.run(async () => {
       try {
-        await tableService.addPlayerToTable(clubId, id, playerName, playerId);
-        toast.success(`${playerName.trim()} adicionado na mesa!`);
+        await tableService.addPlayerToTable(clubId, id, name, playerId);
+        toast.success(`${name.trim()} entrou na mesa.`);
         triggerHaptic('success');
-        await fetchTableData();
         setIsAddingPlayer(false);
-        setPlayerSearchTerm('');
+        await fetchTableData();
       } catch (error) {
         if (error instanceof Error && error.message === 'ALREADY_AT_TABLE') {
-          toast.error(`${playerName.trim()} já está nesta mesa.`);
+          toast.error(`${name.trim()} já está nesta mesa.`);
         } else if (isClosedTableError(error)) {
           toast.error('Mesa encerrada: não é possível adicionar jogadores.');
         } else {
-          toast.error('Erro ao adicionar jogador.');
+          toast.error('Não foi possível adicionar o jogador. Verifique a conexão e tente de novo.');
         }
         console.error('Error adding player to table:', error);
       }
     });
   }
 
-  async function saveTransaction(e?: React.FormEvent) {
-    if (e) e.preventDefault();
-    const amount = parseFloat(txAmount);
-    if (isNaN(amount) || amount < 0 || (activeActionType === 'buy_in' && amount === 0) || !id || !clubId || isSubmitting || !activePlayerAction) return;
-    if (txLock.current) return;
+  async function submitTransaction(tx: NewTransaction, settleFiado?: number): Promise<boolean> {
+    if (!id || !clubId || !selected || txLock.current) return false;
     txLock.current = true;
-
-    setIsSubmitting(true);
+    setBusy(true);
     try {
-      await transactionService.createTransaction(clubId, {
+      const created = await transactionService.createTransaction(clubId, {
         table_id: id,
-        player_id: activePlayerAction.player.id,
-        type: activeActionType as any,
-        amount: amount,
-        description: txDescription || (activeActionType === 'consumo' ? 'Consumo Manual' : undefined)
+        player_id: selected.player.id,
+        type: tx.type,
+        amount: tx.amount,
+        description: tx.description,
+        ...(tx.payment_method ? { payment_method: tx.payment_method } : {}),
+        ...(tx.fiado_amount && tx.fiado_amount > 0 ? { fiado_amount: tx.fiado_amount } : {})
       });
-      
-      const typeLabel = activeActionType === 'buy_in' ? 'Buy-in' : activeActionType === 'cash_out' ? 'Cash-out' : 'Consumo';
-      toast.success(`${typeLabel} registrado!`);
-      triggerHaptic('success');
 
-      setActivePlayerAction(null);
-      setActiveActionType(null);
-      setTxAmount('');
-      setTxDescription('');
+      if (settleFiado && settleFiado > 0) {
+        const gp = globalOf(selected.player);
+        if (gp) {
+          await fiadoService.registerPayment(clubId, {
+            player_id: gp.id,
+            amount: settleFiado,
+            method: 'abatido_cashout',
+            note: `Abatido no acerto da ${table?.name ?? 'mesa'}`,
+            table_id: id,
+            transaction_id: created.id
+          });
+        }
+      }
+
+      const label = tx.type === 'consumo' ? (tx.description || 'Consumo') : TYPE_LABEL[tx.type];
+      const fiadoMsg = tx.fiado_amount && tx.fiado_amount > 0 ? ` ${formatMoney(tx.fiado_amount)} ficou no fiado.` : '';
+      toast.success(`${label} de ${formatMoney(tx.amount)} registrado para ${selected.player.name}.${fiadoMsg}`);
+      triggerHaptic('success');
+      setSelected(null);
       await fetchTableData();
+      return true;
     } catch (error) {
-      toast.error(isClosedTableError(error) ? 'Mesa encerrada: lançamento não permitido.' : 'Erro ao registrar.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: lançamento não permitido.' : 'Não foi possível registrar. Verifique a conexão e tente de novo.');
       console.error('Error saving transaction:', error);
+      return false;
     } finally {
       txLock.current = false;
-      setIsSubmitting(false);
+      setBusy(false);
     }
   }
 
-  async function registerConsumo(itemName: string, amount: number) {
-    if (!id || !clubId || isSubmitting || !activePlayerAction) return;
-    if (txLock.current) return;
-    txLock.current = true;
-    setIsSubmitting(true);
-    try {
-      await transactionService.createTransaction(clubId, {
-        table_id: id,
-        player_id: activePlayerAction.player.id,
-        type: 'consumo',
-        amount: amount,
-        description: itemName
-      });
-      
-      toast.success('Consumo registrado.');
-      triggerHaptic('success');
-
-      setActivePlayerAction(null);
-      setActiveActionType(null);
-      setTxAmount('');
-      setTxDescription('');
-      await fetchTableData();
-    } catch (error) {
-      toast.error(isClosedTableError(error) ? 'Mesa encerrada: lançamento não permitido.' : 'Erro ao lançar consumo.');
-      console.error('Error saving consumo:', error);
-    } finally {
-      txLock.current = false;
-      setIsSubmitting(false);
+  async function editPlayer(name: string, phone: string | null): Promise<boolean> {
+    if (!clubId || !selected) return false;
+    const gp = globalOf(selected.player);
+    if (!gp) {
+      toast.error('Cadastro do jogador não encontrado.');
+      return false;
     }
-  }
-
-  const handleEditPlayerSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activePlayerAction || !clubId || !editPlayerName.trim()) return;
-    const gp = globalPlayers.find(g => isSamePlayer(activePlayerAction.player, g));
-    if (!gp) return;
     try {
-      await playerService.updatePlayer(clubId, gp.id, {
-        name: editPlayerName,
-        phone: editPlayerPhone.trim() || null
-      });
-      toast.success('Cadastro atualizado!');
+      await playerService.updatePlayer(clubId, gp.id, { name, phone });
+      toast.success('Cadastro atualizado.');
       triggerHaptic('success');
-      await fetchTableData();
-      setActivePlayerAction(null);
-      setActiveActionType(null);
+      await Promise.all([fetchTableData(), fetchGlobalPlayers()]);
+      return true;
     } catch (err) {
-      toast.error('Erro ao atualizar cadastro.');
+      const dup = (err as { code?: string })?.code === '23505';
+      toast.error(dup ? 'Já existe um jogador com esse nome.' : 'Não foi possível atualizar o cadastro.');
       console.error(err);
+      return false;
     }
-  };
-
-  function deleteTransaction(txId: string) {
-    triggerHaptic('medium');
-    setPendingDeleteTxId(txId);
   }
 
   async function confirmDeleteTransaction() {
     if (!clubId || !pendingDeleteTxId) return;
-    setConfirmBusy(true);
+    setBusy(true);
     try {
       await transactionService.deleteTransaction(clubId, pendingDeleteTxId);
-      toast.success('Lançamento removido. Ele continua visível no histórico.');
+      toast.success('Lançamento removido. A remoção fica registrada no histórico.');
       triggerHaptic('success');
       setPendingDeleteTxId(null);
       await fetchTableData();
     } catch (error) {
-      toast.error(isClosedTableError(error) ? 'Mesa encerrada: não é possível remover lançamentos.' : 'Erro ao remover lançamento.');
+      toast.error(isClosedTableError(error) ? 'Mesa encerrada: não é possível remover lançamentos.' : 'Não foi possível remover o lançamento.');
       console.error('Error deleting transaction:', error);
     } finally {
-      setConfirmBusy(false);
+      setBusy(false);
     }
   }
 
   async function confirmRemovePlayer() {
     if (!clubId || !pendingRemovePlayer) return;
-    setConfirmBusy(true);
+    setBusy(true);
     try {
       await tableService.removePlayerFromTable(clubId, pendingRemovePlayer.id);
       toast.success(`${pendingRemovePlayer.name} removido da mesa.`);
       triggerHaptic('success');
       setPendingRemovePlayer(null);
-      setActivePlayerAction(null);
-      setActiveActionType(null);
+      setSelected(null);
       await fetchTableData();
     } catch (error) {
       const msg = (error as { message?: string })?.message ?? '';
-      toast.error(msg.includes('lançamentos') || isClosedTableError(error)
-        ? msg
-        : 'Erro ao remover jogador da mesa.');
+      toast.error(msg.includes('lançamentos') || isClosedTableError(error) ? msg : 'Não foi possível remover o jogador da mesa.');
       console.error('Error removing player:', error);
     } finally {
-      setConfirmBusy(false);
+      setBusy(false);
     }
   }
 
   async function closeTable() {
     if (!id || !clubId) return;
+    setBusy(true);
     try {
       await tableService.closeTable(clubId, id);
-      toast.success('Mesa encerrada com sucesso!');
+      toast.success('Mesa encerrada.');
       triggerHaptic('success');
       setIsClosingTable(false);
       await fetchTableData();
+      setShowReport(true);
     } catch (error) {
-      toast.error('Erro ao fechar mesa.');
+      toast.error('Não foi possível encerrar a mesa. Verifique a conexão e tente de novo.');
       console.error('Error closing table:', error);
+    } finally {
+      setBusy(false);
     }
   }
 
-  const getTableDuration = () => {
-    if (!table) return '0m';
-    const start = new Date(table.created_at).getTime();
-    const end = table.closed_at ? new Date(table.closed_at).getTime() : Date.now();
-    const diffMs = end - start;
-    const diffMins = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMins / 60);
-    const mins = diffMins % 60;
-    if (hours > 0) return `${hours}h ${mins}m`;
-    return `${mins}m`;
-  };
+  if (loading) return <div className="flex justify-center p-20"><div className="spinner" role="status" aria-label="Carregando mesa" /></div>;
+  if (!table) {
+    return (
+      <div className="container text-center p-20">
+        <p className="text-white mb-4">Mesa não encontrada.</p>
+        <Link to="/dashboard" className="btn btn-outline">Voltar para as mesas</Link>
+      </div>
+    );
+  }
 
-  // Compile calculations
-  const playerSummaries: PlayerSummary[] = players.map(player => {
-    const playerTxs = transactions.filter(tx => tx.player_id === player.id);
-    const buyIn = playerTxs.filter(tx => tx.type === 'buy_in').reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const cashOut = playerTxs.filter(tx => tx.type === 'cash_out').reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const consumo = playerTxs.filter(tx => tx.type === 'consumo').reduce((sum, tx) => sum + Number(tx.amount), 0);
-    const balance = calculatePlayerBalance(buyIn, cashOut, consumo);
-    const hasCashOut = playerTxs.some(tx => tx.type === 'cash_out');
-    return { player, buyIn, cashOut, consumo, balance, hasCashOut };
-  });
-
-  const activePlayers = playerSummaries.filter(p => !p.hasCashOut);
-  const closedPlayers = playerSummaries.filter(p => p.hasCashOut);
-
-  const totalBuyIn = playerSummaries.reduce((sum, p) => sum + p.buyIn, 0);
-  const totalCashOut = playerSummaries.reduce((sum, p) => sum + p.cashOut, 0);
-  const totalConsumo = playerSummaries.reduce((sum, p) => sum + p.consumo, 0);
-  const rakeTableTotal = totalBuyIn - totalCashOut; 
-
-  const availablePlayersToAdd = globalPlayers.filter(
-    gp => !players.some(tp => isSamePlayer(tp, gp)) && gp.name.toLowerCase().includes(playerSearchTerm.trim().toLowerCase())
-  );
-  
-  const showCreateOption = playerSearchTerm.trim().length > 0 && 
-    !globalPlayers.some(gp => gp.name.trim().toLowerCase() === playerSearchTerm.trim().toLowerCase());
-
-  if (loading) return <div className="flex justify-center p-20"><div className="spinner"></div></div>;
-  if (!table) return <div className="container text-center p-20">Mesa não encontrada.</div>;
+  const open = table.status === 'active';
+  const pendingTx = transactions.find(t => t.id === pendingDeleteTxId);
 
   return (
     <div className="animate-fade-in max-w-6xl mx-auto mobile-view-padding text-left relative">
-      
-      {/* Back button (Mobile uses layout header) */}
-      <Link 
-        to="/dashboard" 
-        onClick={() => triggerHaptic('light')}
-        className="btn btn-outline mb-6 desktop-only text-white no-underline"
-      >
-        <ArrowLeft size={18} /> Voltar para Painel
+      <Link to="/dashboard" className="btn btn-outline mb-6 desktop-only text-white no-underline">
+        <ArrowLeft size={18} /> Voltar para as mesas
       </Link>
 
-      {/* 1. COMPACT TABLE SUMMARY CARD */}
-      <div className="glass-panel mb-6 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border border-glass-border">
-        <div className="text-left">
-          <span className="text-[10px] text-muted font-bold block uppercase tracking-wider">Painel Operacional</span>
-          <h1 className="text-2xl md:text-3xl font-black text-white mt-1 mb-2">{table.name}</h1>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="badge badge-active flex items-center gap-1">
-              {table.status === 'active' ? '🟢 Aberta' : '🔴 Fechada'}
-            </span>
-            <span className="bg-black bg-opacity-35 px-2.5 py-1 rounded-lg text-muted font-semibold">
-              ⏳ {getTableDuration()}
-            </span>
-          </div>
-        </div>
+      <TableSummaryCard
+        table={table}
+        totals={totals}
+        paymentsEnabled={paymentsEnabled}
+        onClose={() => { triggerHaptic('medium'); setIsClosingTable(true); }}
+        onReport={() => setShowReport(true)}
+      />
 
-        {/* Stats compact grid layout */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 w-full md:w-auto text-left">
-          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
-            <span className="text-[9px] text-muted uppercase font-bold block">Jogadores Ativos</span>
-            <span className="text-sm font-extrabold text-white">{activePlayers.length}</span>
-          </div>
-          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
-            <span className="text-[9px] text-muted uppercase font-bold block">Jogadores Saíram</span>
-            <span className="text-sm font-extrabold text-muted">{closedPlayers.length}</span>
-          </div>
-          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
-            <span className="text-[9px] text-muted uppercase font-bold block">Movimentação Total</span>
-            <span className="text-sm font-extrabold text-warning">{formatMoney(totalBuyIn)}</span>
-          </div>
-          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-glass-border">
-            <span className="text-[9px] text-muted uppercase font-bold block">Consumo Copa</span>
-            <span className="text-sm font-extrabold text-danger">{formatMoney(totalConsumo)}</span>
-          </div>
-          <div className="p-3 bg-black bg-opacity-20 rounded-xl border border-primary border-opacity-30">
-            <span
-              className="text-[9px] text-primary uppercase font-bold block"
-              title={table.status === 'active' ? 'Mesa aberta: inclui fichas ainda em jogo. O rake final aparece quando todos fizerem cash-out e a mesa for encerrada.' : undefined}
-            >
-              {table.status === 'active' ? 'Na Mesa (parcial)' : 'Rake Final'}
-            </span>
-            <span className={`text-sm font-extrabold ${rakeTableTotal >= 0 ? 'text-primary' : 'text-danger'}`}>
-              {formatMoney(rakeTableTotal)}
-            </span>
-          </div>
-        </div>
-
-        {table.status === 'active' && (
-          <button 
-            className="btn btn-danger w-full md:w-auto active:scale-95 transition-transform" 
-            onClick={() => {
-              triggerHaptic('medium');
-              setIsClosingTable(true);
-            }}
-          >
-            <XCircle size={18} /> Encerrar Mesa
-          </button>
-        )}
-      </div>
-
-      {/* 2. ACTIVE PLAYERS SECTION */}
       <div className="space-y-6">
-        <div>
-          <div className="flex justify-between items-center mb-4 gap-4">
-            <h2 className="text-sm md:text-base font-bold text-white uppercase tracking-wider text-opacity-80 mb-0">
-              Jogadores Ativos ({activePlayers.length})
-            </h2>
-          {table.status === 'active' && (
-            <button 
-              onClick={() => {
-                triggerHaptic('light');
-                setIsAddingPlayer(true);
-              }}
-              className="btn btn-success btn-sm flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold text-white active:scale-95 transition-transform"
-            >
-              <UserPlus size={14} />
-              <span>Adicionar Jogador</span>
-            </button>
-          )}
-        </div>
-          
-          {activePlayers.length === 0 ? (
-            <div className="glass-panel text-center p-12">
-              <span className="text-muted text-xs block mb-4">Nenhum jogador ativo nesta mesa.</span>
-              {table.status === 'active' && (
-                <button 
-                  className="btn btn-success mx-auto active:scale-95 transition-transform"
-                  onClick={() => setIsAddingPlayer(true)}
-                >
-                  <UserPlus size={16} /> Adicionar Jogador
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activePlayers.map(summary => (
-                <div 
-                  key={summary.player.id}
-                  onClick={() => {
-                    // Mesa encerrada: só consulta, sem abrir lançamentos.
-                    if (table.status !== 'active') return;
-                    triggerHaptic('light');
-                    setActivePlayerAction(summary);
-                    setActiveActionType(null);
-                  }}
-                  className="mobile-card p-5 bg-card border border-glass-border hover:border-primary rounded-2xl flex items-center justify-between shadow-sm cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary bg-opacity-10 text-primary flex items-center justify-center font-bold text-sm">
-                      {summary.player.name.substring(0, 2).toUpperCase()}
-                    </div>
-                    <div className="text-left">
-                      <span className="font-bold text-base text-white block">{summary.player.name}</span>
-                      <span className="text-[10px] text-muted block mt-0.5">Em jogo</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[9px] text-muted font-bold block uppercase">Saldo Parcial</span>
-                    <span className={`text-base font-extrabold block mt-0.5 ${
-                      summary.balance > 0 ? 'text-success' : summary.balance < 0 ? 'text-danger' : 'text-muted'
-                    }`}>
-                      {summary.balance > 0 ? '+' : ''}{formatMoney(summary.balance)}
-                    </span>
-                    <span className="text-[9px] text-muted block mt-0.5">Consumo: {formatMoney(summary.consumo)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <ActivePlayers
+          players={activeSummaries}
+          open={open}
+          fiadoByTablePlayer={fiadoByTablePlayer}
+          onSelect={openPlayer}
+          onAdd={() => { triggerHaptic('light'); setIsAddingPlayer(true); }}
+        />
 
-        {/* 3. CLOSED PLAYERS ACCORDION (COLLAPSED BY DEFAULT) */}
-        {closedPlayers.length > 0 && (
-          <div className="space-y-3">
-            <button 
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setIsClosedPlayersExpanded(!isClosedPlayersExpanded);
-              }}
-              style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
-              className="w-full flex items-center justify-between p-4 bg-white bg-opacity-5 rounded-2xl border border-glass-border cursor-pointer transition-all active:bg-opacity-10"
-            >
-              <span className="text-xs font-extrabold text-muted uppercase tracking-wider flex items-center gap-2">
-                {isClosedPlayersExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />} 
-                Jogadores Encerrados ({closedPlayers.length})
-              </span>
-            </button>
-            
-            {isClosedPlayersExpanded && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
-                {closedPlayers.map(summary => (
-                  <div key={summary.player.id} className="p-4 bg-dark bg-opacity-20 border border-glass-border rounded-2xl flex items-center justify-between opacity-60">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted bg-opacity-10 text-muted flex items-center justify-center font-bold text-xs">
-                        {summary.player.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div className="text-left">
-                        <span className="font-bold text-xs text-muted block">{summary.player.name}</span>
-                        <span className="text-[9px] text-muted block">Mesa Encerrada</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] text-muted font-bold block uppercase">Resultado Final</span>
-                      <span className={`text-xs font-bold block mt-0.5 ${
-                        summary.balance > 0 ? 'text-success' : summary.balance < 0 ? 'text-danger' : 'text-muted'
-                      }`}>
-                        {summary.balance > 0 ? '+' : ''}{formatMoney(summary.balance)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <FinishedPlayers players={finishedSummaries} showAcerto={paymentsEnabled} />
 
-        {/* 4. HISTORICO ACCORDION (COLLAPSED BY DEFAULT) */}
-        <div className="space-y-3">
-          <button 
+        <section className="space-y-3">
+          <button
             type="button"
-            onClick={() => {
-              triggerHaptic('light');
-              setIsHistoryExpanded(!isHistoryExpanded);
-            }}
-            style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}
-            className="w-full flex items-center justify-between p-4 bg-white bg-opacity-5 rounded-2xl border border-glass-border cursor-pointer transition-all active:bg-opacity-10"
+            aria-expanded={isHistoryExpanded}
+            onClick={() => setIsHistoryExpanded(v => !v)}
+            className="w-full flex items-center gap-2 p-4 rounded-2xl border border-glass-border cursor-pointer text-left"
+            style={{ background: 'rgba(255,255,255,0.03)' }}
           >
-            <span className="text-xs font-extrabold text-muted uppercase tracking-wider flex items-center gap-2">
-              {isHistoryExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />} 
-              Histórico ({events ? events.length : transactions.length})
-            </span>
+            {isHistoryExpanded ? <ChevronDown size={16} className="text-muted" /> : <ChevronRight size={16} className="text-muted" />}
+            <span className="text-sm font-bold text-white">Histórico da mesa</span>
+            <span className="text-sm text-muted">({events.length})</span>
           </button>
 
-          {isHistoryExpanded && events !== null && (
+          {isHistoryExpanded && (
             <div className="glass-panel animate-fade-in text-left">
               <TableTimeline
                 events={events}
                 canDelete={ev =>
-                  table.status === 'active' &&
+                  open &&
                   (ev.event_type === 'buy_in' || ev.event_type === 'cash_out' || ev.event_type === 'consumo') &&
                   !!ev.ref_id &&
                   transactions.some(t => t.id === ev.ref_id)
                 }
-                onDelete={ev => ev.ref_id && deleteTransaction(ev.ref_id)}
+                onDelete={ev => {
+                  if (!ev.ref_id) return;
+                  triggerHaptic('medium');
+                  setPendingDeleteTxId(ev.ref_id);
+                }}
               />
             </div>
           )}
-
-          {isHistoryExpanded && events === null && (
-            <div className="glass-panel space-y-3 animate-fade-in text-left">
-              {transactions.length === 0 ? (
-                <p className="text-muted text-center py-6 text-xs font-semibold">Nenhuma movimentação financeira.</p>
-              ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                  {transactions.map(tx => {
-                    const pName = players.find(p => p.id === tx.player_id)?.name || 'Outro';
-                    return (
-                      <div key={tx.id} className="p-3 bg-dark bg-opacity-40 rounded-xl border border-glass-border flex justify-between items-center text-xs">
-                        <div>
-                          <div className="flex items-center gap-1.5 mb-1.5">
-                            <span className={`badge ${
-                              tx.type === 'buy_in' ? 'badge-active border-warning text-warning' :
-                              tx.type === 'cash_out' ? 'badge-active border-success text-success' :
-                              'badge-active border-danger text-danger'
-                            }`} style={{ fontSize: '7px', padding: '1px 5px' }}>
-                              {tx.type === 'buy_in' ? 'Buy-in' : tx.type === 'cash_out' ? 'Cash-out' : 'Consumo'}
-                            </span>
-                            <span className="text-white font-bold">{pName}</span>
-                          </div>
-                          <span className="text-[10px] text-muted">
-                            {tx.description || (tx.type === 'buy_in' ? 'Fundo adicionado' : tx.type === 'cash_out' ? 'Resgate' : 'Item')} • {new Date(tx.created_at).toLocaleTimeString('pt-BR')}
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <span className={`font-black text-sm ${
-                            tx.type === 'buy_in' ? 'text-warning' :
-                            tx.type === 'cash_out' ? 'text-success' :
-                            'text-danger'
-                          }`}>
-                            {tx.type === 'cash_out' ? '+' : '-'}{formatMoney(Number(tx.amount))}
-                          </span>
-                          
-                          {table.status === 'active' && (
-                            <button 
-                              onClick={() => deleteTransaction(tx.id)}
-                              className="w-7 h-7 bg-white bg-opacity-5 hover:bg-danger hover:bg-opacity-10 rounded-lg text-muted hover:text-danger flex items-center justify-center cursor-pointer border-none"
-                              style={{ background: 'rgba(255,255,255,0.05)', border: 'none' }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {removedTransactions.length > 0 && (
-                <div className="pt-3 border-t border-glass-border">
-                  <span className="text-[10px] text-muted font-bold uppercase tracking-wider block mb-2">
-                    Lançamentos removidos ({removedTransactions.length})
-                  </span>
-                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                    {removedTransactions.map(rt => {
-                      const tx = rt.old_data;
-                      const pName = players.find(p => p.id === tx.player_id)?.name || 'Jogador';
-                      const typeLabel = tx.type === 'buy_in' ? 'Buy-in' : tx.type === 'cash_out' ? 'Cash-out' : 'Consumo';
-                      return (
-                        <div key={rt.id} className="p-2.5 rounded-xl border border-glass-border flex justify-between items-center text-xs opacity-70">
-                          <div>
-                            <span className="font-bold text-white block">{pName} · {typeLabel}{tx.description ? ` · ${tx.description}` : ''}</span>
-                            <span className="text-[10px] text-muted block mt-0.5">Removido em {formatDateTime(rt.changed_at)}</span>
-                          </div>
-                          <span className="font-bold text-muted" style={{ textDecoration: 'line-through' }}>
-                            {formatMoney(Number(tx.amount))}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        </section>
       </div>
 
-
-
-      {/* ADD PLAYER BOTTOM SHEET / CENTRALIZED DESKTOP MODAL */}
       {isAddingPlayer && (
-        <div className="modal-overlay animate-fade-in">
-          <div className="modal-content mobile-bottom-sheet max-w-lg">
-            {/* Mobile Drag Indicator */}
-            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setIsAddingPlayer(false)} />
-            
-            <div className="modal-header mb-4">
-              <h2>Adicionar Jogador</h2>
-              <button className="close-btn" onClick={() => setIsAddingPlayer(false)}>✕</button>
-            </div>
-            
-            <div className="input-group mb-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted" size={20} />
-                <input 
-                  type="text" 
-                  className="input pl-10" 
-                  placeholder="Buscar ou cadastrar novo..."
-                  value={playerSearchTerm}
-                  onChange={(e) => setPlayerSearchTerm(e.target.value)}
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="max-h-60 overflow-y-auto space-y-2 mb-6 text-left">
-              {availablePlayersToAdd.map(gp => (
-                <button 
-                  key={gp.id}
-                  className="w-full flex items-center justify-between p-3 rounded-xl bg-dark bg-opacity-50 text-white hover:bg-primary hover:text-white border border-glass-border text-left cursor-pointer active:scale-95 transition-all"
-                  onClick={() => addPlayerToTable(gp.name, gp.id)}
-                  disabled={addPlayerLock.busy}
-                  style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid var(--glass-border)' }}
-                >
-                  <span className="font-bold text-xs">{gp.name}</span>
-                  <UserCheck size={18} opacity={0.5} />
-                </button>
-              ))}
-              
-              {showCreateOption && (
-                <button 
-                  className="w-full flex items-center gap-2 p-3 rounded-xl border border-primary text-primary hover:bg-primary hover:text-white transition-colors text-left cursor-pointer active:scale-95 transition-all"
-                  onClick={() => addPlayerToTable(playerSearchTerm)}
-                  disabled={addPlayerLock.busy}
-                >
-                  <UserPlus size={18} />
-                  <span className="font-bold text-xs">Cadastrar "{playerSearchTerm}"</span>
-                </button>
-              )}
-
-              {availablePlayersToAdd.length === 0 && !showCreateOption && (
-                <div className="text-center text-muted p-4 text-xs font-semibold">
-                  Todos os jogadores filtrados já estão na mesa.
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-4 mt-2">
-              <button type="button" className="btn btn-outline w-full py-3" onClick={() => setIsAddingPlayer(false)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
+        <AddPlayerSheet
+          globalPlayers={globalPlayers}
+          tablePlayers={players}
+          busy={addPlayerLock.busy}
+          onAdd={addPlayer}
+          onClose={() => setIsAddingPlayer(false)}
+        />
       )}
 
-      {/* 5. REDESIGNED SINGLE PLAYER ACTIONS OVERLAY SHEET/MODAL */}
-      {activePlayerAction && (
-        <div className="modal-overlay animate-fade-in">
-          <div className="modal-content mobile-bottom-sheet max-w-lg">
-            {/* Mobile Drag Indicator */}
-            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setActivePlayerAction(null)} />
-
-            {/* Header user name banner */}
-            <div className="flex justify-between items-center border-b border-glass-border pb-4 mb-4">
-              <div className="text-left">
-                <span className="text-[10px] text-muted font-bold block uppercase tracking-wider">Operações Rápidas</span>
-                <span className="text-base font-black text-white">{activePlayerAction.player.name}</span>
-              </div>
-              <button 
-                onClick={() => {
-                  triggerHaptic('light');
-                  setActivePlayerAction(null);
-                }}
-                className="w-8 h-8 rounded-full bg-white bg-opacity-5 flex items-center justify-center text-muted hover:text-white font-bold"
-                style={{ background: 'rgba(255,255,255,0.05)', border: 'none' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* FLOW SWITCH: KEYPADS OR ITEM BUTTONS */}
-            {activeActionType === null ? (
-              /* PRIMARY LARGE BUTTON SELECTIONS */
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setActiveActionType('buy_in');
-                  }}
-                  className="w-full py-4 rounded-xl bg-warning bg-opacity-10 text-warning hover:bg-opacity-20 border border-warning border-opacity-25 text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
-                >
-                  🟢 Registrar Buy-in
-                </button>
-                
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setActiveActionType('cash_out');
-                  }}
-                  className="w-full py-4 rounded-xl bg-success bg-opacity-10 text-success hover:bg-opacity-20 border border-success border-opacity-25 text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
-                >
-                  🔴 Registrar Cash-out
-                </button>
-
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setActiveActionType('consumo');
-                  }}
-                  className="w-full py-4 rounded-xl bg-danger bg-opacity-10 text-danger hover:bg-opacity-20 border border-danger border-opacity-25 text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
-                >
-                  🥤 Registrar Consumo
-                </button>
-
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setActiveActionType('edit');
-                  }}
-                  className="w-full py-4 rounded-xl bg-white bg-opacity-5 text-white hover:bg-opacity-10 border border-glass-border text-sm font-extrabold flex items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform"
-                >
-                  ✏️ Editar Jogador
-                </button>
-
-                {!transactions.some(tx => tx.player_id === activePlayerAction.player.id) && (
-                  <button
-                    onClick={() => {
-                      triggerHaptic('medium');
-                      setPendingRemovePlayer(activePlayerAction.player);
-                    }}
-                    className="w-full py-3 rounded-xl text-danger font-bold text-xs flex items-center justify-center gap-2 cursor-pointer border border-danger border-opacity-25 active:scale-95 transition-transform"
-                    style={{ background: 'transparent' }}
-                  >
-                    Remover da mesa (adicionado por engano)
-                  </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    triggerHaptic('light');
-                    setActivePlayerAction(null);
-                  }}
-                  className="w-full py-4 rounded-xl bg-dark text-muted font-bold text-xs flex items-center justify-center gap-2 cursor-pointer border border-glass-border active:scale-95 transition-transform"
-                >
-                  ❌ Fechar
-                </button>
-              </div>
-            ) : activeActionType === 'buy_in' || activeActionType === 'cash_out' ? (
-              /* NUMERIC KEYPAD WITH ACCUMULATOR BUTTONS */
-              <form onSubmit={saveTransaction}>
-                <div className="input-group mb-4">
-                  <label className="text-xs text-muted font-bold text-left block mb-2">
-                    Valor do {activeActionType === 'buy_in' ? 'Buy-in' : 'Cash-out'} (R$)
-                  </label>
-                  <input 
-                    type="number" 
-                    step="0.01"
-                    min="0"
-                    className="input text-2xl text-center font-bold py-3.5" 
-                    value={txAmount}
-                    onChange={(e) => setTxAmount(e.target.value)}
-                    placeholder="0"
-                    autoFocus
-                  />
-                </div>
-                
-                <div className="grid grid-cols-3 gap-2 mb-6">
-                  {[50, 100, 200].map(val => (
-                    <button 
-                      key={val} 
-                      type="button"
-                      className="btn btn-outline py-3.5 text-xs font-extrabold cursor-pointer active:scale-95 transition-transform"
-                      onClick={() => handleQuickAdd(val)}
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}
-                    >
-                      +{val}
-                    </button>
-                  ))}
-                  {[500, 1000].map(val => (
-                    <button 
-                      key={val} 
-                      type="button"
-                      className="btn btn-outline py-3.5 text-xs font-extrabold cursor-pointer active:scale-95 transition-transform"
-                      onClick={() => handleQuickAdd(val)}
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)' }}
-                    >
-                      +{val}
-                    </button>
-                  ))}
-                  <button 
-                    type="button"
-                    className="btn btn-danger py-3.5 text-xs font-extrabold cursor-pointer active:scale-95 transition-transform"
-                    onClick={() => {
-                      triggerHaptic('medium');
-                      setTxAmount('');
-                    }}
-                  >
-                    Limpar
-                  </button>
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-3 mt-6">
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary w-full py-4 text-sm font-bold active:scale-95 transition-transform" 
-                    disabled={
-                      !txAmount || 
-                      isNaN(Number(txAmount)) || 
-                      Number(txAmount) < 0 || 
-                      (activeActionType === 'buy_in' && Number(txAmount) === 0) || 
-                      isSubmitting
-                    }
-                  >
-                    {isSubmitting ? 'Salvando...' : 'Confirmar Lançamento'}
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-outline w-full py-4 text-sm font-semibold active:scale-95 transition-transform" 
-                    onClick={() => {
-                      setActiveActionType(null);
-                      setTxAmount('');
-                    }}
-                  >
-                    Voltar
-                  </button>
-                </div>
-              </form>
-            ) : activeActionType === 'consumo' ? (
-              /* ONE-TAP CONSUMPTION BUTTONS */
-              <div className="space-y-6 text-left">
-                <div className="grid grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
-                  {consumoItems.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => registerConsumo(item.name, item.price)}
-                      className="p-4 rounded-xl bg-dark bg-opacity-50 text-white border border-glass-border hover:border-success hover:bg-success hover:bg-opacity-20 transition-all text-left flex flex-col gap-1 cursor-pointer active:scale-95 transition-transform"
-                      style={{ background: 'rgba(15,23,42,0.5)' }}
-                    >
-                      <span className="font-bold text-xs text-white">{item.name}</span>
-                      <span className="text-xs text-success font-bold">{item.price === 0 ? 'Grátis' : formatMoney(item.price)}</span>
-                    </button>
-                  ))}
-                </div>
-                
-                <div className="border-t border-glass-border pt-4">
-                  <p className="text-xs text-muted mb-3 font-semibold text-left">Lançamento de produto manual:</p>
-                  <form onSubmit={saveTransaction} className="flex flex-col gap-3">
-                    <div className="input-group mb-0">
-                      <input 
-                        type="text" 
-                        className="input text-sm py-2.5 rounded-xl" 
-                        placeholder="Nome do produto"
-                        value={txDescription}
-                        onChange={(e) => setTxDescription(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-3 items-end">
-                      <div className="input-group mb-0 flex-1">
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          min="0"
-                          className="input text-sm py-2.5 rounded-xl" 
-                          placeholder="Preço (R$)"
-                          value={txAmount}
-                          onChange={(e) => setTxAmount(e.target.value)}
-                        />
-                      </div>
-                      <button type="submit" className="btn btn-primary h-max py-3 px-5 cursor-pointer active:scale-95 transition-transform" disabled={!txAmount || isNaN(Number(txAmount)) || Number(txAmount) < 0 || isSubmitting}>
-                        Lançar
-                      </button>
-                    </div>
-                  </form>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button 
-                    type="button" 
-                    className="btn btn-outline w-full py-3.5 text-xs font-bold active:scale-95 transition-transform" 
-                    onClick={() => setActiveActionType(null)}
-                  >
-                    Voltar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* EDIT PROFILE FORM FIELDS */
-              <form onSubmit={handleEditPlayerSubmit}>
-                <div className="input-group mb-4">
-                  <label className="text-xs font-bold text-muted block mb-2 text-left">Nome do Jogador *</label>
-                  <input 
-                    type="text" 
-                    className="input text-sm py-3 rounded-xl" 
-                    value={editPlayerName}
-                    onChange={(e) => setEditPlayerName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="input-group mb-6">
-                  <label className="text-xs font-bold text-muted block mb-2 text-left">Telefone / WhatsApp</label>
-                  <input 
-                    type="text" 
-                    className="input text-sm py-3 rounded-xl" 
-                    placeholder="(00) 00000-0000"
-                    value={editPlayerPhone}
-                    onChange={(e) => setEditPlayerPhone(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-3 mt-6">
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary w-full py-4 text-xs font-bold active:scale-95 transition-transform" 
-                    disabled={!editPlayerName.trim()}
-                  >
-                    Salvar Alterações
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn btn-outline w-full py-4 text-xs font-semibold active:scale-95 transition-transform" 
-                    onClick={() => setActiveActionType(null)}
-                  >
-                    Voltar
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
+      {selected && (
+        <PlayerActionSheet
+          summary={selected}
+          initialPhone={globalOf(selected.player)?.phone ?? ''}
+          consumoItems={consumoItems}
+          paymentsEnabled={paymentsEnabled}
+          fiadoBalance={selectedFiado}
+          canRemove={!transactions.some(tx => tx.player_id === selected.player.id)}
+          submitting={busy}
+          onSubmit={submitTransaction}
+          onEditPlayer={editPlayer}
+          onRemove={() => { triggerHaptic('medium'); setPendingRemovePlayer(selected.player); }}
+          onClose={() => setSelected(null)}
+        />
       )}
 
       <ConfirmDialog
         open={pendingDeleteTxId !== null}
         danger
-        busy={confirmBusy}
+        busy={busy}
         title="Remover lançamento?"
-        message={(() => {
-          const tx = transactions.find(t => t.id === pendingDeleteTxId);
-          if (!tx) return 'Este lançamento será removido.';
-          const who = players.find(p => p.id === tx.player_id)?.name ?? 'Jogador';
-          const kind = tx.type === 'buy_in' ? 'Buy-in' : tx.type === 'cash_out' ? 'Cash-out' : 'Consumo';
-          return <>Remover <strong className="text-white">{kind} de {formatMoney(Number(tx.amount))}</strong> de <strong className="text-white">{who}</strong>? A remoção fica registrada no histórico da mesa.</>;
-        })()}
+        message={pendingTx
+          ? <>Remover <strong className="text-white">{TYPE_LABEL[pendingTx.type]} de {formatMoney(Number(pendingTx.amount))}</strong> de <strong className="text-white">{players.find(p => p.id === pendingTx.player_id)?.name ?? 'jogador'}</strong>? A remoção fica registrada no histórico da mesa.</>
+          : 'Este lançamento será removido.'}
         confirmLabel="Remover lançamento"
         onConfirm={confirmDeleteTransaction}
         onCancel={() => setPendingDeleteTxId(null)}
@@ -1031,33 +421,35 @@ export default function TableDetail() {
       <ConfirmDialog
         open={pendingRemovePlayer !== null}
         danger
-        busy={confirmBusy}
+        busy={busy}
         title="Remover jogador da mesa?"
-        message={<><strong className="text-white">{pendingRemovePlayer?.name}</strong> sai da mesa. O cadastro dele continua no clube, e a remoção fica no histórico.</>}
+        message={<><strong className="text-white">{pendingRemovePlayer?.name}</strong> sai da mesa. O cadastro continua no clube, e a remoção fica no histórico.</>}
         confirmLabel="Remover da mesa"
         onConfirm={confirmRemovePlayer}
         onCancel={() => setPendingRemovePlayer(null)}
       />
 
-      {/* CLOSE TABLE CONFIRMATION OVERLAY */}
       {isClosingTable && (
-        <div className="modal-overlay animate-fade-in">
-          <div className="modal-content mobile-bottom-sheet max-w-lg border-danger">
-            {/* Mobile Drag Indicator */}
-            <div className="w-12 h-1 bg-glass-border rounded-full mx-auto mb-4 md:hidden" onClick={() => setIsClosingTable(false)} />
-            
-            <div className="modal-header">
-              <h2 className="text-danger">Atenção!</h2>
-            </div>
-            <p className="mb-6 text-muted text-sm text-left leading-relaxed">
-              Tem certeza que deseja fechar esta mesa? Isso irá consolidar os resultados de lucro/rake finais do caixa e não será mais possível adicionar ou remover transações.
-            </p>
-            <div className="flex flex-col md:flex-row gap-3 mt-6">
-              <button type="button" className="btn btn-danger w-full py-3.5 font-bold cursor-pointer active:scale-95 transition-transform" onClick={closeTable}>Sim, Fechar Mesa</button>
-              <button type="button" className="btn btn-outline w-full py-3.5" onClick={() => setIsClosingTable(false)}>Cancelar</button>
-            </div>
-          </div>
-        </div>
+        <CloseTableDialog
+          tableName={table.name}
+          summaries={summaries}
+          totals={totals}
+          busy={busy}
+          onConfirm={closeTable}
+          onCancel={() => setIsClosingTable(false)}
+        />
+      )}
+
+      {showReport && (
+        <TableReport
+          clubName={clubName}
+          table={table}
+          summaries={summaries}
+          totals={totals}
+          transactions={transactions}
+          players={players}
+          onClose={() => setShowReport(false)}
+        />
       )}
     </div>
   );
