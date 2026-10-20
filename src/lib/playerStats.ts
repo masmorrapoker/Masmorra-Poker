@@ -21,6 +21,23 @@ export interface Session {
   finished: boolean;
   /** parte do acerto que ficou no fiado */
   fiado: number;
+  /** quando entrou na mesa (primeiro registro) */
+  enteredAt: string | null;
+  /** último cash-out (null se ainda jogando) */
+  leftAt: string | null;
+  /** ids dos registros de mesa (table_players) somados nesta sessão */
+  rowIds?: string[];
+}
+
+const later = (a: string | null, b: string | null) => (!a ? b : !b ? a : a > b ? a : b);
+const earlier = (a: string | null, b: string | null) => (!a ? b : !b ? a : a < b ? a : b);
+
+/** Minutos jogados na sessão (null se não dá para saber). Limita a 16h para ignorar mesas esquecidas abertas. */
+export function sessionMinutes(s: Session): number | null {
+  if (!s.finished || !s.enteredAt || !s.leftAt) return null;
+  const min = (new Date(s.leftAt).getTime() - new Date(s.enteredAt).getTime()) / 60000;
+  if (!(min > 0)) return null;
+  return Math.min(min, 16 * 60);
 }
 
 const keyOf = (tp: Pick<Player, 'player_id' | 'name'>) =>
@@ -56,6 +73,7 @@ export function buildSessions(
     const fiado = txs.filter(t => t.type === 'cash_out').reduce((s, t) => s + Number(t.fiado_amount ?? 0), 0);
     const hasCashOut = txs.some(t => t.type === 'cash_out');
     const hasAny = txs.length > 0;
+    const lastCashOut = txs.filter(t => t.type === 'cash_out').reduce<string | null>((m, t) => later(m, t.created_at), null);
 
     const prev = sessions.get(id);
     if (prev) {
@@ -67,6 +85,9 @@ export function buildSessions(
       prev.consumo += consumo;
       prev.fiado += fiado;
       prev.result = prev.cashOut - prev.buyIn - prev.consumo;
+      prev.rowIds = [...(prev.rowIds ?? []), tp.id];
+      if (hasAny) prev.enteredAt = earlier(prev.enteredAt, tp.created_at ?? null);
+      prev.leftAt = later(prev.leftAt, lastCashOut);
       continue;
     }
     sessions.set(id, {
@@ -80,7 +101,10 @@ export function buildSessions(
       consumo,
       result: cashOut - buyIn - consumo,
       finished: hasCashOut,
-      fiado
+      fiado,
+      enteredAt: hasAny ? tp.created_at ?? null : null,
+      leftAt: lastCashOut,
+      rowIds: [tp.id]
     });
   }
   // Sessões sem nenhum lançamento (só adicionado) não contam.
