@@ -187,7 +187,7 @@ export default function PlayerProfile() {
         </div>
       </dl>
 
-      <Link to="/ranking" className="text-xs text-primary font-bold flex items-center gap-1.5 mb-8 no-underline">
+      <Link to="/ranking" className="text-xs text-primary font-bold inline-flex items-center gap-1.5 mb-8 py-3 no-underline">
         <Trophy size={14} /> Ver ranking do clube
       </Link>
 

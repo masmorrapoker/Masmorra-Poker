@@ -127,7 +127,7 @@ export default function Ranking() {
               type="button"
               aria-pressed={period.kind === k}
               onClick={() => setKind(k)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold cursor-pointer border-0 ${period.kind === k ? 'bg-primary text-white' : 'text-muted'}`}
+              className={`px-4 py-2.5 rounded-lg text-xs font-bold cursor-pointer border-0 ${period.kind === k ? 'bg-primary text-white' : 'text-muted'}`}
               style={period.kind === k ? undefined : { background: 'transparent' }}
             >
               {label}
@@ -165,7 +165,9 @@ export default function Ranking() {
         ))}
       </div>
       <p className="text-xs text-muted mb-4">
-        {crit.hint} {nightsInPeriod > 0 && `${nightsInPeriod} noite${nightsInPeriod === 1 ? '' : 's'} de jogo em ${periodLabel(period).toLowerCase()}.`}
+        {crit.hint}{' '}
+        {nightsInPeriod > 0 &&
+          `${nightsInPeriod} noite${nightsInPeriod === 1 ? '' : 's'} de jogo ${period.kind === 'all' ? 'no total' : `em ${periodLabel(period).toLowerCase()}`}.`}
       </p>
       <p className="print-only text-sm text-white font-bold mb-3">{crit.label} · {periodLabel(period)}</p>
 
