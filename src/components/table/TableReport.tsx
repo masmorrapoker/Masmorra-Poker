@@ -1,4 +1,6 @@
-import { Copy, Download, Printer, X } from 'lucide-react';
+import { Copy, Download, Printer, Wallet, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { nightOf } from '../../lib/nightMath';
 import type { PlayerSummary, Table, Transaction, Player } from '../../types';
 import type { TableTotals } from '../../lib/tableMath';
 import { describeAcerto, formatDuration, mergeByPlayer } from '../../lib/tableMath';
@@ -211,6 +213,14 @@ export default function TableReport({ clubName, table, summaries, totals, transa
             <Download size={16} /> Baixar planilha
           </button>
         </div>
+        {table.status !== 'active' && (
+          <Link
+            to={`/caixa?noite=${nightOf(table.created_at)}`}
+            className="no-print btn btn-success w-full py-3 text-xs font-bold mt-2 no-underline"
+          >
+            <Wallet size={16} /> Fechar o caixa da noite
+          </Link>
+        )}
       </div>
     </div>
   );

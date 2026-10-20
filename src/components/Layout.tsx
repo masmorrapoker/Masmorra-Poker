@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 import { triggerHaptic } from '../utils/haptic';
@@ -18,6 +18,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: '/inicio', label: 'Início', icon: <Home size={22} /> },
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={22} /> },
+    { path: '/caixa', label: 'Caixa', icon: <Wallet size={22} /> },
     { path: '/fiado', label: 'Fiado', icon: <HandCoins size={22} /> },
     { path: '/relationship', label: 'Relacionamento', icon: <MessageSquare size={22} /> },
     { path: '/analytics', label: 'Analytics', icon: <BarChart3 size={22} /> },
@@ -234,6 +235,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div>
                 <span className="text-[10px] text-muted font-bold block uppercase tracking-wider mb-2.5">Gestão do Clube</span>
                 <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    to="/caixa"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="p-4 rounded-2xl bg-white bg-opacity-[0.02] border border-glass-border flex flex-col gap-2 hover:bg-white hover:bg-opacity-5 transition-all text-left no-underline"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-success bg-opacity-10 text-success flex items-center justify-center">
+                      <Wallet size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-white">Caixa</span>
+                    <span className="text-[10px] text-muted leading-tight">Fechamento da noite</span>
+                  </Link>
+
                   <Link
                     to="/fiado"
                     onClick={() => {
