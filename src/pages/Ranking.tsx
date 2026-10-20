@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Copy, Printer, Trophy } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Film, Printer, Trophy } from 'lucide-react';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
 import { playerService } from '../services/playerService';
@@ -114,9 +114,17 @@ export default function Ranking() {
 
   return (
     <div className="animate-fade-in max-w-3xl mx-auto mobile-view-padding text-left print-area">
-      <div className="mb-6">
-        <h1 className="mb-1">Ranking</h1>
-        <p className="text-muted text-sm mb-0">Quem mais ganhou e quem mais apareceu no clube.</p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-6">
+        <div>
+          <h1 className="mb-1">Ranking</h1>
+          <p className="text-muted text-sm mb-0">Quem mais ganhou e quem mais apareceu no clube.</p>
+        </div>
+        <Link
+          to={`/retrospectiva${period.kind === 'month' ? `?mes=${period.value}` : ''}`}
+          className="btn btn-outline no-underline no-print"
+        >
+          <Film size={16} /> Retrospectiva em vídeo
+        </Link>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 no-print">

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy, Film } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 import { triggerHaptic } from '../utils/haptic';
@@ -249,6 +249,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                     <span className="text-xs font-bold text-white">Ranking</span>
                     <span className="text-[10px] text-muted leading-tight">Resultado e presença</span>
+                  </Link>
+
+                  <Link
+                    to="/retrospectiva"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="p-4 rounded-2xl bg-white bg-opacity-[0.02] border border-glass-border flex flex-col gap-2 hover:bg-white hover:bg-opacity-5 transition-all text-left no-underline"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-danger bg-opacity-10 text-danger flex items-center justify-center">
+                      <Film size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-white">Retrospectiva</span>
+                    <span className="text-[10px] text-muted leading-tight">Vídeo do mês</span>
                   </Link>
 
                   <Link

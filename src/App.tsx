@@ -7,6 +7,7 @@ import Relationship from './pages/Relationship';
 import Fiado from './pages/Fiado';
 import Caixa from './pages/Caixa';
 import Ranking from './pages/Ranking';
+import Retrospectiva from './pages/Retrospectiva';
 import Inicio from './pages/Inicio';
 import Settings from './pages/Settings';
 import Analytics from './pages/Analytics';
@@ -126,6 +127,14 @@ function MainApp() {
             !user ? <Navigate to="/login" replace /> : 
             clubError ? <ClubErrorView error={clubError} logout={logout} /> :
             <Layout><PlayerProfile /></Layout>
+          } 
+        />
+        <Route 
+          path="/retrospectiva" 
+          element={
+            !user ? <Navigate to="/login" replace /> : 
+            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
+            <Layout><Retrospectiva /></Layout>
           } 
         />
         <Route 
