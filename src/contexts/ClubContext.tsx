@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { authService } from '../services/authService';
 import { clubService } from '../services/clubService';
+import { pendingInvite, teamService, type Role } from '../services/teamService';
 import type { Club } from '../services/clubService';
 
 interface ClubContextType {
@@ -13,6 +14,13 @@ interface ClubContextType {
   energyPrice: number;
   loading: boolean;
   error: string | null;
+  /** Clube com assinatura vencida (bloqueado) */
+  blocked: boolean;
+  role: Role;
+  /** Dono e gerente veem faturamento; caixa não */
+  canSeeFinance: boolean;
+  isAdmin: boolean;
+  paidUntil: string | null;
   refreshClub: () => Promise<void>;
 }
 
@@ -23,6 +31,10 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
   const [club, setClub] = useState<Club | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
+  const [role, setRole] = useState<Role>('dono');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [paidUntil, setPaidUntil] = useState<string | null>(null);
 
   async function loadClubData() {
     if (!user) {
@@ -34,24 +46,57 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true);
     setError(null);
+    setBlocked(false);
     try {
-      // 1. Fetch profile
-      const profile = await authService.getProfile(user.id);
-      
-      if (!profile || !profile.club_id) {
-        setClub(null);
-        setError('Usuário não está associado a nenhum clube. Entre em contato com o administrador do sistema.');
-        setLoading(false);
-        return;
+      // Papel, clube e assinatura (funções do banco). null = recurso ainda não ativado.
+      let access = await teamService.getAccess();
+
+      // Convite aceito antes de confirmar o e-mail: aplica agora.
+      if (access && !access.club_id) {
+        const token = pendingInvite.get();
+        if (token) {
+          try {
+            await teamService.acceptInvite(token, (user.user_metadata?.full_name as string | undefined) ?? undefined);
+            pendingInvite.clear();
+            access = await teamService.getAccess();
+          } catch (e) {
+            console.error('Error applying pending invite:', e);
+            pendingInvite.clear();
+          }
+        }
       }
 
-      // 2. Fetch club configs
-      const clubData = await clubService.getClub(profile.club_id);
-      
+      if (access) {
+        setIsAdmin(Boolean(access.is_admin));
+        setRole(access.role ?? 'caixa');
+        setPaidUntil(access.paid_until);
+        if (!access.club_id) {
+          setClub(null);
+          setError('Sua conta ainda não faz parte de nenhum clube. Abra o link de convite que o dono do clube te mandou.');
+          return;
+        }
+        if (access.blocked) {
+          setClub(null);
+          setBlocked(true);
+          setError(`O acesso do ${access.club_name ?? 'clube'} está suspenso porque a assinatura venceu.`);
+          return;
+        }
+      } else {
+        // Banco ainda sem as funções de equipe: comportamento anterior.
+        const profile = await authService.getProfile(user.id);
+        if (!profile || !profile.club_id) {
+          setClub(null);
+          setError('Usuário não está associado a nenhum clube. Entre em contato com o administrador do sistema.');
+          return;
+        }
+      }
+
+      const profileClubId = access?.club_id ?? (await authService.getProfile(user.id))?.club_id;
+      const clubData = profileClubId ? await clubService.getClub(profileClubId) : null;
+
       if (!clubData) {
         setClub(null);
         setError('Clube não encontrado no sistema. Entre em contato com o administrador.');
-        setLoading(false);
         return;
       }
 
@@ -83,6 +128,11 @@ export function ClubProvider({ children }: { children: React.ReactNode }) {
     energyPrice: club?.energy_price ?? 8.0,
     loading,
     error,
+    blocked,
+    role,
+    canSeeFinance: role !== 'caixa',
+    isAdmin,
+    paidUntil,
     refreshClub
   };
 

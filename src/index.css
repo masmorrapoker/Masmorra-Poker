@@ -1427,3 +1427,9 @@ img[src*="logo.png"]:hover {
 /* Tabela do relatório */
 .report-table th, .report-table td { white-space: nowrap; }
 .report-table caption { caption-side: top; }
+
+/* Termos e Privacidade */
+.legal-text h2 { font-size: 1.05rem; color: #fff; margin: 2rem 0 0.5rem; }
+.legal-text p, .legal-text li { color: rgba(226, 232, 240, 0.85); font-size: 0.95rem; line-height: 1.7; max-width: 68ch; }
+.legal-text ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+.legal-text li { margin-bottom: 0.35rem; }

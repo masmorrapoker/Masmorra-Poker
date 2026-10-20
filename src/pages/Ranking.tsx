@@ -41,7 +41,7 @@ function display(p: PlayerStats, c: Criterion): string {
 }
 
 export default function Ranking() {
-  const { clubId, clubName } = useClub();
+  const { clubId, clubName, canSeeFinance } = useClub();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>({ kind: 'month', value: currentNight().slice(0, 7) });
@@ -119,12 +119,14 @@ export default function Ranking() {
           <h1 className="mb-1">Ranking</h1>
           <p className="text-muted text-sm mb-0">Quem mais ganhou e quem mais apareceu no clube.</p>
         </div>
-        <Link
-          to={`/retrospectiva${period.kind === 'month' ? `?mes=${period.value}` : ''}`}
-          className="btn btn-outline no-underline no-print"
-        >
-          <Film size={16} /> Retrospectiva em vídeo
-        </Link>
+        {canSeeFinance && (
+          <Link
+            to={`/retrospectiva${period.kind === 'month' ? `?mes=${period.value}` : ''}`}
+            className="btn btn-outline no-underline no-print"
+          >
+            <Film size={16} /> Retrospectiva em vídeo
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 no-print">

@@ -8,6 +8,7 @@ import { paymentLabel } from '../../lib/paymentMethods';
 import { downloadCSV, slug } from '../../lib/csv';
 import { formatMoney, formatDateTime } from '../../utils';
 import { toast } from '../Toast';
+import { useClub } from '../../contexts/ClubContext';
 
 interface TableReportProps {
   clubName: string | null;
@@ -26,7 +27,7 @@ const hasAcertoInfo = (list: PlayerSummary[]) =>
   list.some(s => s.acerto && (s.acerto.method || s.acerto.fiado > 0 || s.acerto.abatido > 0));
 
 /** Texto do relatório para colar no WhatsApp (negrito com *asteriscos*). */
-export function buildReportText(clubName: string | null, table: Table, summaries: PlayerSummary[], totals: TableTotals): string {
+export function buildReportText(clubName: string | null, table: Table, summaries: PlayerSummary[], totals: TableTotals, showFinance = true): string {
   const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
   const showAcerto = hasAcertoInfo(ranking);
   const lines = [
@@ -43,8 +44,7 @@ export function buildReportText(clubName: string | null, table: Table, summaries
     `Buy-ins: ${formatMoney(totals.buyIn)}`,
     `Cash-outs: ${formatMoney(totals.cashOut)}`,
     `Consumo: ${formatMoney(totals.consumo)}`,
-    `*Rake: ${formatMoney(totals.rake)}*`,
-    `*Receita do clube: ${formatMoney(totals.revenue)}*`
+    ...(showFinance ? [`*Rake: ${formatMoney(totals.rake)}*`, `*Receita do clube: ${formatMoney(totals.revenue)}*`] : [])
   ];
   if (showAcerto) {
     lines.push('', '*Acertos*');
@@ -68,9 +68,10 @@ export function buildReportText(clubName: string | null, table: Table, summaries
 export default function TableReport({ clubName, table, summaries, totals, transactions, players, onClose }: TableReportProps) {
   const ranking = mergeByPlayer(summaries).sort((a, b) => b.balance - a.balance);
   const showAcerto = hasAcertoInfo(ranking);
+  const { canSeeFinance } = useClub();
 
   async function copyText() {
-    const text = buildReportText(clubName, table, summaries, totals);
+    const text = buildReportText(clubName, table, summaries, totals, canSeeFinance);
     try {
       await navigator.clipboard.writeText(text);
       toast.success('Relatório copiado. É só colar no WhatsApp.');
@@ -126,8 +127,12 @@ export default function TableReport({ clubName, table, summaries, totals, transa
           {[
             ['Buy-ins', formatMoney(totals.buyIn), 'text-white'],
             ['Cash-outs', formatMoney(totals.cashOut), 'text-white'],
-            ['Rake', formatMoney(totals.rake), totals.rake >= 0 ? 'text-primary' : 'text-danger'],
-            ['Receita (rake + consumo)', formatMoney(totals.revenue), 'text-success']
+            ...(canSeeFinance
+              ? [
+                  ['Rake', formatMoney(totals.rake), totals.rake >= 0 ? 'text-primary' : 'text-danger'],
+                  ['Receita (rake + consumo)', formatMoney(totals.revenue), 'text-success']
+                ]
+              : [['Consumo', formatMoney(totals.consumo), 'text-white']])
           ].map(([label, value, tone]) => (
             <div key={label} className="p-3 rounded-xl bg-black bg-opacity-25 border border-glass-border">
               <dt className="text-[11px] text-muted">{label}</dt>

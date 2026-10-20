@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import { useClub } from '../contexts/ClubContext';
 import { tableService } from '../services/tableService';
@@ -251,7 +252,7 @@ export default function Inicio() {
             Bem-vindo ao Masmorra Manager.
           </h1>
           <p className="text-muted text-sm leading-relaxed max-w-xl">
-            Bem-vindo novamente ao <strong className="text-white">{clubName || 'Masmorra Poker Club'}</strong>. Tudo pronto para mais uma noite de poker.
+            Bem-vindo novamente ao <strong className="text-white">{clubName || 'seu clube'}</strong>. Tudo pronto para mais uma noite de poker.
           </p>
         </div>
         <div className="flex items-center gap-2.5 bg-black bg-opacity-40 py-2.5 px-4 rounded-xl border border-glass-border">
@@ -268,6 +269,37 @@ export default function Inicio() {
           {/* Operations Main Column (Left and Center) */}
           <div className="lg:col-span-2 space-y-8">
             
+            {tables.length === 0 && (
+              <section className="glass-panel p-6 border border-primary" aria-labelledby="primeiros-passos">
+                <h2 id="primeiros-passos" className="text-lg font-bold text-white mb-1">Primeiros passos</h2>
+                <p className="text-sm text-muted mb-5">Quatro passos para deixar o {clubName || 'clube'} pronto para a primeira noite.</p>
+                <ol className="space-y-3 mb-0">
+                  {[
+                    { done: false, title: 'Confira os produtos da copa e os preços', hint: 'Cerveja, refrigerante, água: o que o clube vende.', to: '/settings?aba=consumos', cta: 'Abrir produtos' },
+                    { done: false, title: 'Coloque a logo e os dados do clube', hint: 'A logo aparece no relatório e na retrospectiva.', to: '/settings', cta: 'Abrir ajustes' },
+                    { done: false, title: 'Convide quem vai operar as mesas', hint: 'Gerente ou caixa: cada um com o próprio login.', to: '/settings?aba=equipe', cta: 'Convidar equipe' },
+                    { done: globalPlayers.length > 0, title: 'Cadastre os jogadores', hint: 'Também dá para cadastrar direto na mesa, na hora.', to: '/players', cta: 'Abrir jogadores' }
+                  ].map((step, i) => (
+                    <li key={step.title} className="flex items-start gap-3 p-3 rounded-xl border border-glass-border" style={{ background: 'rgba(15,23,42,0.4)' }}>
+                      <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${step.done ? 'bg-success text-white' : 'bg-primary bg-opacity-20 text-primary'}`}>
+                        {step.done ? '✓' : i + 1}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className={`text-sm font-bold block ${step.done ? 'text-muted' : 'text-white'}`}>{step.title}</span>
+                        <span className="text-xs text-muted block">{step.hint}</span>
+                      </span>
+                      {!step.done && (
+                        <Link to={step.to} className="btn btn-outline btn-sm no-underline flex-shrink-0">{step.cta}</Link>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                <button type="button" className="btn btn-primary w-full mt-4" onClick={() => setIsCreatingTable(true)}>
+                  <Plus size={16} /> Abrir a primeira mesa
+                </button>
+              </section>
+            )}
+
             {/* Quick Actions Actions Card Grid */}
             <div>
               <h2 className="text-base font-bold text-white mb-4 uppercase tracking-wider text-opacity-80">Ações Rápidas</h2>

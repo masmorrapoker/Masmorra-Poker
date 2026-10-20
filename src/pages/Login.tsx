@@ -2,12 +2,35 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Lock, LogIn, AlertCircle, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/authService';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
+
+  async function handleForgot() {
+    setErrorMsg(null);
+    setInfoMsg(null);
+    if (!email.trim()) {
+      setErrorMsg('Digite seu e-mail no campo acima e toque em "Esqueceu sua senha?" de novo.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/nova-senha`
+      });
+      if (error) throw error;
+      setInfoMsg(`Se ${email.trim()} tiver conta, chega em instantes um e-mail com o link para criar uma nova senha.`);
+    } catch {
+      setErrorMsg('Não foi possível enviar o e-mail agora. Tente de novo em alguns minutos.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +87,12 @@ export default function Login() {
             <div className="p-3 mb-6 bg-danger bg-opacity-10 rounded-xl flex items-start gap-2 animate-fade-in" style={{ border: '1px solid rgba(239, 68, 68, 0.2)', padding: '12px' }}>
               <AlertCircle className="text-danger flex-shrink-0" size={16} style={{ marginTop: '2px' }} />
               <p className="text-xs font-semibold text-danger leading-relaxed" style={{ margin: 0 }}>{errorMsg}</p>
+            </div>
+          )}
+
+          {infoMsg && (
+            <div className="p-3 mb-6 bg-success bg-opacity-10 rounded-xl text-xs font-semibold text-success leading-relaxed" style={{ border: '1px solid rgba(16, 185, 129, 0.2)' }} role="status">
+              {infoMsg}
             </div>
           )}
 
@@ -127,9 +156,10 @@ export default function Login() {
           <div className="text-center" style={{ marginTop: '1.5rem' }}>
             <button
               type="button"
-              className="text-xs text-muted hover:text-white transition-colors cursor-not-allowed"
-              style={{ opacity: 0.5, border: 'none', background: 'none', textDecoration: 'underline' }}
-              disabled
+              className="text-xs text-muted hover:text-white transition-colors cursor-pointer py-2"
+              style={{ border: 'none', background: 'none', textDecoration: 'underline' }}
+              onClick={handleForgot}
+              disabled={loading}
             >
               Esqueceu sua senha?
             </button>

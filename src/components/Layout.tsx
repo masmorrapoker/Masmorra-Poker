@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy, Film } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy, Film, Building2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 import { triggerHaptic } from '../utils/haptic';
+import { daysUntil } from '../services/teamService';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { clubName } = useClub();
+  const { clubName, canSeeFinance, isAdmin, role, paidUntil } = useClub();
 
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
@@ -25,15 +26,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { path: '/analytics', label: 'Analytics', icon: <BarChart3 size={22} /> },
     { path: '/profile', label: 'Perfil', icon: <User size={22} /> },
     { path: '/settings', label: 'Ajustes', icon: <Settings size={22} /> },
-  ];
+    ...(isAdmin ? [{ path: '/admin', label: 'Clubes', icon: <Building2 size={22} /> }] : []),
+  ].filter(item => canSeeFinance || item.path !== '/analytics');
 
   // Mobile navigation items (4 primary + Mais button trigger)
   const mobileNavItems = [
     { path: '/inicio', label: 'Início', icon: <Home size={20} /> },
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={20} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={20} /> },
-    { path: '/analytics', label: 'Analytics', icon: <BarChart3 size={20} /> },
+    canSeeFinance
+      ? { path: '/analytics', label: 'Analytics', icon: <BarChart3 size={20} /> }
+      : { path: '/caixa', label: 'Caixa', icon: <Wallet size={20} /> },
   ];
+
+  // Aviso de vencimento para quem paga (dono e gerente)
+  const dueIn = daysUntil(paidUntil);
+  const showDue = (role === 'dono' || role === 'gerente') && dueIn !== null && dueIn <= 5;
 
   const isSubPage = location.pathname.startsWith('/table/') || location.pathname.startsWith('/player/');
 
@@ -142,6 +150,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Dynamic Content Container */}
         <main className="flex-1 overflow-y-auto pt-16 pb-16 md:pt-0 md:pb-0">
           <div className="p-4 md:p-8">
+            {showDue && dueIn !== null && (
+              <div
+                className="max-w-5xl mx-auto mb-4 p-3 rounded-xl text-sm text-warning flex flex-col md:flex-row md:items-center justify-between gap-2"
+                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}
+                role="status"
+              >
+                <span className="flex items-center gap-2">
+                  <AlertTriangle size={16} className="flex-shrink-0" />
+                  {dueIn > 0
+                    ? `A assinatura do clube vence em ${dueIn} dia${dueIn === 1 ? '' : 's'}.`
+                    : dueIn === 0
+                      ? 'A assinatura do clube vence hoje.'
+                      : `A assinatura venceu há ${-dueIn} dia${dueIn === -1 ? '' : 's'}. O acesso é suspenso ${3 + dueIn > 0 ? `em ${3 + dueIn} dia${3 + dueIn === 1 ? '' : 's'}` : 'hoje'}.`}
+                </span>
+                <a
+                  href={`https://wa.me/5551998811587?text=${encodeURIComponent(`Olá! Quero renovar a assinatura do Masmorra Manager do ${clubName ?? 'meu clube'}.`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-bold text-warning underline"
+                >
+                  Renovar pelo WhatsApp
+                </a>
+              </div>
+            )}
             {children}
           </div>
         </main>
@@ -236,6 +268,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div>
                 <span className="text-[10px] text-muted font-bold block uppercase tracking-wider mb-2.5">Gestão do Clube</span>
                 <div className="grid grid-cols-2 gap-3">
+                  {isAdmin && (
+                  <Link
+                    to="/admin"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="p-4 rounded-2xl bg-white bg-opacity-[0.02] border border-glass-border flex flex-col gap-2 hover:bg-white hover:bg-opacity-5 transition-all text-left no-underline"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-primary bg-opacity-10 text-primary flex items-center justify-center">
+                      <Building2 size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-white">Clubes</span>
+                    <span className="text-[10px] text-muted leading-tight">Seus clientes e vencimentos</span>
+                  </Link>
+                  )}
+
                   <Link
                     to="/ranking"
                     onClick={() => {
@@ -251,6 +300,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <span className="text-[10px] text-muted leading-tight">Resultado e presença</span>
                   </Link>
 
+                  {canSeeFinance && (
                   <Link
                     to="/retrospectiva"
                     onClick={() => {
@@ -265,6 +315,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     <span className="text-xs font-bold text-white">Retrospectiva</span>
                     <span className="text-[10px] text-muted leading-tight">Vídeo do mês</span>
                   </Link>
+                  )}
 
                   <Link
                     to="/caixa"

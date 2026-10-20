@@ -28,7 +28,7 @@ function diffTone(diff: number) {
   return diff < 0 ? { tone: 'text-danger', label: 'Faltou' } : { tone: 'text-warning', label: 'Sobrou' };
 }
 
-function buildText(clubName: string | null, night: string, s: NightSummary, c: CashClosing | null, opening: number) {
+function buildText(clubName: string | null, night: string, s: NightSummary, c: CashClosing | null, opening: number, showFinance: boolean) {
   const d = s.flows.dinheiro;
   const expected = c ? c.expected_cash : expectedCash(s, opening);
   const lines = [
@@ -54,13 +54,13 @@ function buildText(clubName: string | null, night: string, s: NightSummary, c: C
   if (s.fiadoGeradoTotal > 0) {
     lines.push('', `*Ficou no fiado: ${formatMoney(s.fiadoGeradoTotal)}*`, ...s.fiadoGerado.map(f => `${f.name}: ${formatMoney(f.amount)}`));
   }
-  lines.push('', `Rake: ${formatMoney(s.rake)}`, `Consumo: ${formatMoney(s.consumo)}`, `*Receita do clube: ${formatMoney(s.revenue)}*`);
+  if (showFinance) lines.push('', `Rake: ${formatMoney(s.rake)}`, `Consumo: ${formatMoney(s.consumo)}`, `*Receita do clube: ${formatMoney(s.revenue)}*`);
   if (c?.note) lines.push('', `Obs.: ${c.note}`);
   return lines.join('\n');
 }
 
 export default function Caixa() {
-  const { clubId, clubName } = useClub();
+  const { clubId, clubName, canSeeFinance } = useClub();
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const night = params.get('noite') || currentNight();
@@ -156,7 +156,7 @@ export default function Caixa() {
   async function copyText() {
     if (!summary) return;
     try {
-      await navigator.clipboard.writeText(buildText(clubName, night, summary, closing ?? null, openingValue));
+      await navigator.clipboard.writeText(buildText(clubName, night, summary, closing ?? null, openingValue, canSeeFinance));
       toast.success('Fechamento copiado. É só colar no WhatsApp.');
     } catch {
       toast.error('Não foi possível copiar.');
@@ -387,6 +387,7 @@ export default function Caixa() {
                     )}
                   </section>
 
+                  {canSeeFinance && (
                   <section className="glass-panel p-5" aria-labelledby="resultado-title">
                     <h2 id="resultado-title" className="text-base font-bold text-white mb-3">Resultado do clube</h2>
                     <dl className="text-sm space-y-2 mb-0">
@@ -395,6 +396,7 @@ export default function Caixa() {
                       <div className="flex justify-between gap-3 border-t border-glass-border pt-2"><dt className="text-white font-bold">Receita</dt><dd className="text-success font-black">{formatMoney(s.revenue)}</dd></div>
                     </dl>
                   </section>
+                  )}
                 </div>
               </div>
 
@@ -414,7 +416,7 @@ export default function Caixa() {
                             {t.table.status === 'active' ? `Aberta · ${t.activeCount} jogando` : 'Encerrada'}
                           </span>
                         </span>
-                        <span className="text-sm font-bold text-success flex-shrink-0">{formatMoney(t.revenue)}</span>
+                        {canSeeFinance && <span className="text-sm font-bold text-success flex-shrink-0">{formatMoney(t.revenue)}</span>}
                       </Link>
                     </li>
                   ))}

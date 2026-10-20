@@ -1,3 +1,4 @@
+import type React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import TableDetail from './pages/TableDetail';
@@ -17,7 +18,11 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider, useClub } from './contexts/ClubContext';
-import { AlertCircle, LogOut } from 'lucide-react';
+import { AlertCircle, LogOut, MessageCircle } from 'lucide-react';
+import Convite from './pages/Convite';
+import Admin from './pages/Admin';
+import Legal from './pages/Legal';
+import NovaSenha from './pages/NovaSenha';
 
 function ClubErrorView({ error, logout }: { error: string; logout: () => Promise<void> }) {
   return (
@@ -45,11 +50,12 @@ function ClubErrorView({ error, logout }: { error: string; logout: () => Promise
 }
 
 function MainApp() {
-  const { user, loading: authLoading, logout } = useAuth();
-  const { loading: clubLoading, error: clubError } = useClub();
+  const { user, loading: authLoading } = useAuth();
+  const { loading: clubLoading } = useClub();
 
   // Premium Elegant Splash Screen
-  if (authLoading || (user && clubLoading)) {
+  const onInvitePage = typeof window !== 'undefined' && (window.location.pathname.startsWith('/convite/') || window.location.pathname === '/nova-senha');
+  if (authLoading || (user && clubLoading && !onInvitePage)) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#090d16' }}>
         {/* Background decorative glows */}
@@ -74,135 +80,74 @@ function MainApp() {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
-        <Route 
-          path="/" 
-          element={<Home />} 
-        />
-        <Route 
-          path="/login" 
-          element={user ? <Navigate to="/inicio" replace /> : <Login />} 
-        />
+        {/* Públicas */}
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={user ? <Navigate to="/inicio" replace /> : <Login />} />
+        <Route path="/convite/:token" element={<Convite />} />
+        <Route path="/nova-senha" element={<NovaSenha />} />
+        <Route path="/termos" element={<Legal kind="termos" />} />
+        <Route path="/privacidade" element={<Legal kind="privacidade" />} />
 
-        {/* Private Routes (Wrapped in Layout with Auth and Club validations) */}
-        <Route 
-          path="/inicio" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Inicio /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/dashboard" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Dashboard /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/table/:id" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><TableDetail /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/players" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Players /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/player/:id" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><PlayerProfile /></Layout>
-          } 
-        />
-        <Route 
-          path="/retrospectiva" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Retrospectiva /></Layout>
-          } 
-        />
-        <Route 
-          path="/ranking" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Ranking /></Layout>
-          } 
-        />
-        <Route 
-          path="/caixa" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Caixa /></Layout>
-          } 
-        />
-        <Route 
-          path="/fiado" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Fiado /></Layout>
-          } 
-        />
-        <Route 
-          path="/relationship" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Relationship /></Layout>
-          } 
-        />
-        <Route 
-          path="/analytics" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Analytics /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/settings" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><Settings /></Layout>
-          } 
-        />
-        
-        <Route 
-          path="/profile" 
-          element={
-            !user ? <Navigate to="/login" replace /> : 
-            clubError ? <ClubErrorView error={clubError} logout={logout} /> :
-            <Layout><OperatorProfile /></Layout>
-          } 
-        />
+        {/* Privadas */}
+        <Route path="/inicio" element={<Private><Inicio /></Private>} />
+        <Route path="/dashboard" element={<Private><Dashboard /></Private>} />
+        <Route path="/table/:id" element={<Private><TableDetail /></Private>} />
+        <Route path="/players" element={<Private><Players /></Private>} />
+        <Route path="/player/:id" element={<Private><PlayerProfile /></Private>} />
+        <Route path="/ranking" element={<Private><Ranking /></Private>} />
+        <Route path="/caixa" element={<Private><Caixa /></Private>} />
+        <Route path="/fiado" element={<Private><Fiado /></Private>} />
+        <Route path="/relationship" element={<Private><Relationship /></Private>} />
+        <Route path="/settings" element={<Private><Settings /></Private>} />
+        <Route path="/profile" element={<Private><OperatorProfile /></Private>} />
+        <Route path="/admin" element={<Private><Admin /></Private>} />
 
-        {/* Fallback Redirection */}
-        <Route 
-          path="*" 
-          element={<Navigate to={user ? "/inicio" : "/"} replace />} 
-        />
+        {/* Só dono e gerente (faturamento) */}
+        <Route path="/analytics" element={<Private finance><Analytics /></Private>} />
+        <Route path="/retrospectiva" element={<Private finance><Retrospectiva /></Private>} />
+
+        <Route path="*" element={<Navigate to={user ? '/inicio' : '/'} replace />} />
       </Routes>
     </Router>
+  );
+}
+
+/** Rota privada: exige login e clube ativo; `finance` exige dono ou gerente. */
+function Private({ children, finance = false }: { children: React.ReactNode; finance?: boolean }) {
+  const { user, logout } = useAuth();
+  const { error, blocked, canSeeFinance } = useClub();
+  if (!user) return <Navigate to="/login" replace />;
+  if (blocked && error) return <BlockedView message={error} logout={logout} />;
+  if (error) return <ClubErrorView error={error} logout={logout} />;
+  if (finance && !canSeeFinance) return <Navigate to="/inicio" replace />;
+  return <Layout>{children}</Layout>;
+}
+
+const SUPPORT_WHATSAPP = '5551998811587';
+
+function BlockedView({ message, logout }: { message: string; logout: () => Promise<void> }) {
+  return (
+    <div className="flex h-screen w-screen flex-col items-center justify-center p-6" style={{ backgroundColor: '#090d16' }}>
+      <div className="glass-panel max-w-md w-full p-8 rounded-2xl text-center">
+        <div className="w-16 h-16 mx-auto rounded-full text-warning flex items-center justify-center mb-6" style={{ backgroundColor: 'rgba(245,158,11,0.1)' }}>
+          <AlertCircle size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-white mb-3">Acesso suspenso</h2>
+        <p className="text-sm text-muted leading-relaxed mb-2">{message}</p>
+        <p className="text-sm text-muted leading-relaxed mb-6">Seus dados estão guardados. Assim que o pagamento for confirmado, o acesso volta na hora.</p>
+        <a
+          className="btn btn-success w-full py-3 mb-2 no-underline"
+          href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent('Olá! Quero regularizar a assinatura do Masmorra Manager do meu clube.')}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <MessageCircle size={18} /> Falar com o suporte
+        </a>
+        <button onClick={logout} className="btn btn-outline w-full py-3">
+          <LogOut size={18} /> Sair
+        </button>
+      </div>
+    </div>
   );
 }
 
