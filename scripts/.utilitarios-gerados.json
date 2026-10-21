@@ -253,6 +253,7 @@
 "md:text-3xl",
 "md:text-4xl",
 "md:w-auto",
+"min-h-0",
 "min-h-[40px]",
 "min-h-screen",
 "min-w-0",

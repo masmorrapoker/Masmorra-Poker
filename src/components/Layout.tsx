@@ -63,10 +63,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-dark">
       {/* Sidebar Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-card border-r border-glass-border">
-        <div className="p-6 border-b border-glass-border flex flex-col gap-4 text-left">
+      <aside className="hidden md:flex flex-col w-64 h-full bg-card border-r border-glass-border">
+        <div className="p-5 border-b border-glass-border flex flex-col gap-3 text-left flex-shrink-0">
           <div className="flex items-center gap-3">
-            <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '50px', height: '50px' }} />
+            <img src="/logo.png?v=2" alt="Logo" className="object-contain" style={{ width: '40px', height: '40px' }} />
             <span className="text-lg font-bold text-white tracking-tight uppercase" style={{ letterSpacing: '0.05em' }}>Masmorra Manager</span>
           </div>
           <div className="flex flex-col gap-1 mt-1 border-t border-glass-border pt-3">
@@ -75,14 +75,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-2">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-1" aria-label="Menu principal">
           {desktopNavItems.map((item) => {
             const active = isTabActive(item.path);
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all no-underline ${active
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl font-medium transition-all no-underline ${active
                     ? 'bg-primary bg-opacity-20 text-primary border-l-4 border-primary'
                     : 'text-muted hover:bg-white hover:bg-opacity-5 hover:text-white border-l-4 border-transparent'
                   }`}
@@ -95,7 +95,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Sidebar Footer Logout */}
-        <div className="p-4 border-t border-glass-border">
+        <div className="p-3 border-t border-glass-border flex-shrink-0">
           <button
             onClick={() => {
               triggerHaptic('medium');
