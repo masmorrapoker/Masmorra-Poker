@@ -13,6 +13,9 @@ import {
 import { sounds, speak, unlockAudio } from '../lib/tournamentSounds';
 import { formatMoney } from '../utils';
 import { FONT_CSS } from '../lib/wrappedVideo';
+import { createDemo } from '../lib/tournamentDemo';
+
+const SALES_WHATSAPP = '5551998811587';
 
 /**
  * Relógio do torneio para a TV do clube. Abre por link secreto, sem login.
@@ -24,7 +27,10 @@ type Announcement = { id: string; tone: 'rebuy' | 'addon' | 'out' | 'bonus' | 'i
 const money = (v: number) => formatMoney(Math.round(v)).replace(',00', '');
 
 export default function TournamentTV() {
-  const { token = '' } = useParams<{ token: string }>();
+  const params = useParams<{ token: string }>();
+  const token = params.token ?? 'demo';
+  const isDemo = token === 'demo';
+  const demo = useRef<ReturnType<typeof createDemo> | null>(null);
   const [data, setData] = useState<TvPayload | null>(null);
   const [missing, setMissing] = useState(false);
   const [offset, setOffset] = useState(0); // hora do servidor − hora local
@@ -63,7 +69,8 @@ export default function TournamentTV() {
     const load = async () => {
       try {
         const t0 = Date.now();
-        const p = await tournamentService.tv(token);
+        if (isDemo && !demo.current) demo.current = createDemo();
+        const p = isDemo && demo.current ? demo.current() : await tournamentService.tv(token);
         if (!alive) return;
         if (!p) { setMissing(true); return; }
         const t1 = Date.now();
@@ -100,7 +107,7 @@ export default function TournamentTV() {
     load();
     const id = window.setInterval(load, 1500);
     return () => { alive = false; window.clearInterval(id); };
-  }, [token, enqueue]);
+  }, [token, enqueue, isDemo]);
 
   // Relógio local (corrigido pela hora do servidor)
   useEffect(() => {
@@ -229,10 +236,22 @@ export default function TournamentTV() {
             <div className="tv-tournament">{data.tournament.name}</div>
           </div>
         </div>
-        <div className="tv-brand">
-          <img src="/logo.png?v=2" alt="" />
-          <span>Masmorra Manager</span>
-        </div>
+        {isDemo ? (
+          <a
+            className="tv-demo-cta"
+            href={`https://wa.me/${SALES_WHATSAPP}?text=${encodeURIComponent('Olá! Vi a demonstração do relógio de torneio e quero o Masmorra Manager no meu clube.')}`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+          >
+            Quero no meu clube
+          </a>
+        ) : (
+          <div className="tv-brand">
+            <img src="/logo.png?v=2" alt="" />
+            <span>Masmorra Manager</span>
+          </div>
+        )}
       </header>
 
       <main className="tv-main">
@@ -415,6 +434,8 @@ function TvStyle() {
 
       .tv-activate { position: absolute; right: 3vw; top: 9vh; z-index: 20; padding: 2.4vh 3vw; border-radius: 2vh;
         border: 2px solid var(--blue); background: rgba(13,21,38,.95); color: var(--ivory); font-size: 2.8vh; font-weight: 700; cursor: pointer; }
+      .tv-demo-cta { position: relative; z-index: 21; padding: 1.4vh 1.6vw; border-radius: 1.4vh; background: var(--blue); color: #fff; font-weight: 800;
+        font-size: min(2.2vh, 1.6vw); text-decoration: none; box-shadow: 0 1vh 3vh rgba(59,123,255,.35); white-space: nowrap; }
       .tv-voice { position: absolute; right: 1.5vw; bottom: 1vh; z-index: 2; background: transparent; border: 0; color: var(--muted); opacity: .45; font-size: 1.5vh; cursor: pointer; }
 
       @keyframes tv-pulse { 50% { opacity: .55; } }
