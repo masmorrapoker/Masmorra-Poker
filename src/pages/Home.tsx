@@ -200,7 +200,7 @@ export default function Home() {
                 <div className="lp-mock-dot bg-danger"></div>
                 <div className="lp-mock-dot bg-warning"></div>
                 <div className="lp-mock-dot bg-success"></div>
-                <span className="text-[10px] text-muted ml-2 font-mono">masmorramanager.com/table/vip-poker</span>
+                <span className="text-[10px] text-muted ml-2 font-mono">masmorramanager.com.br/table/vip-poker</span>
                 <span className="text-muted" style={{ marginLeft: 'auto', opacity: 0.7, fontSize: '9px', fontWeight: 600, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Exemplo ilustrativo</span>
               </div>
               <div className="lp-table-view">
