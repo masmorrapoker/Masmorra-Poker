@@ -57,7 +57,7 @@ function MainApp() {
   const { loading: clubLoading } = useClub();
 
   // Premium Elegant Splash Screen
-  const onInvitePage = typeof window !== 'undefined' && (window.location.pathname.startsWith('/convite/') || window.location.pathname === '/nova-senha' || window.location.pathname.startsWith('/tv/'));
+  const onInvitePage = typeof window !== 'undefined' && (window.location.pathname.startsWith('/convite/') || window.location.pathname === '/nova-senha' || window.location.pathname.startsWith('/tv/') || window.location.pathname === '/demo');
   if (authLoading || (user && clubLoading && !onInvitePage)) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#090d16' }}>
@@ -89,6 +89,7 @@ function MainApp() {
         <Route path="/convite/:token" element={<Convite />} />
         <Route path="/nova-senha" element={<NovaSenha />} />
         <Route path="/tv/:token" element={<TournamentTV />} />
+        <Route path="/demo" element={<TournamentTV />} />
         <Route path="/termos" element={<Legal kind="termos" />} />
         <Route path="/privacidade" element={<Legal kind="privacidade" />} />
 
