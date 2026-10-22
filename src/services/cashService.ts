@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { DebtSettlement, Player, Table, Transaction } from '../types';
-import { nightRange, type NightData, type NightSummary } from '../lib/nightMath';
+import { nightRange, type NightData, type NightSummary, type NightTournamentMovement } from '../lib/nightMath';
 
 export interface CashClosing {
   id: string;
@@ -38,7 +38,7 @@ export const cashService = {
     if (error) throw error;
     const ids = (tables || []).map(t => t.id);
 
-    const [playersRes, txRes, tableStRes, payRes] = await Promise.all([
+    const [playersRes, txRes, tableStRes, payRes, tourRes] = await Promise.all([
       ids.length
         ? supabase.from('table_players').select('*').eq('club_id', clubId).in('table_id', ids)
         : Promise.resolve({ data: [], error: null }),
@@ -54,6 +54,12 @@ export const cashService = {
         .eq('club_id', clubId)
         .in('method', ['dinheiro', 'pix', 'cartao'])
         .gte('created_at', from)
+        .lt('created_at', to),
+      supabase
+        .from('tournament_movements')
+        .select('tournament_id, kind, amount, to_prize, payment_method, entry:tournament_entries(name)')
+        .eq('club_id', clubId)
+        .gte('created_at', from)
         .lt('created_at', to)
     ]);
     if (playersRes.error) throw playersRes.error;
@@ -64,7 +70,21 @@ export const cashService = {
       players: (playersRes.data || []) as Player[],
       transactions: (txRes.data || []) as Transaction[],
       tableSettlements: (tableStRes.error ? [] : tableStRes.data || []) as DebtSettlement[],
-      fiadoPayments: (payRes.error ? [] : payRes.data || []) as DebtSettlement[]
+      fiadoPayments: (payRes.error ? [] : payRes.data || []) as DebtSettlement[],
+      tournamentMovements: tourRes.error
+        ? []
+        : (tourRes.data || []).map((m: Record<string, unknown>) => {
+            const entry = m.entry as { name?: string } | { name?: string }[] | null;
+            const name = Array.isArray(entry) ? entry[0]?.name : entry?.name;
+            return {
+              tournament_id: m.tournament_id as string,
+              kind: m.kind as NightTournamentMovement['kind'],
+              amount: Number(m.amount),
+              to_prize: Number(m.to_prize),
+              payment_method: (m.payment_method as string | null) ?? null,
+              name: name ?? ''
+            };
+          })
     };
   },
 

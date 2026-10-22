@@ -61,6 +61,17 @@ export interface NightData {
   tableSettlements: DebtSettlement[];
   /** Pagamentos de fiado recebidos durante a noite (dinheiro/PIX/cartão) */
   fiadoPayments: DebtSettlement[];
+  /** Lançamentos de torneio feitos na noite (com o nome do inscrito) */
+  tournamentMovements?: NightTournamentMovement[];
+}
+
+export interface NightTournamentMovement {
+  tournament_id: string;
+  kind: 'buyin' | 'rebuy' | 'addon' | 'bonus' | 'premio' | 'extra';
+  amount: number;
+  to_prize: number;
+  payment_method: string | null;
+  name: string;
 }
 
 export interface NightSummary {
@@ -78,6 +89,8 @@ export interface NightSummary {
   fiadoGerado: { name: string; amount: number }[];
   fiadoGeradoTotal: number;
   abatido: number;
+  /** Torneios da noite: taxa da casa e quanto a casa cobriu do garantido */
+  tournaments: { count: number; fee: number; overlay: number; collected: number; prizes: number };
 }
 
 const emptyFlow = (): MethodFlow => ({ recebido: 0, pago: 0, fiadoRecebido: 0 });
@@ -123,6 +136,31 @@ export function summarizeNight(data: NightData): NightSummary {
     }
   }
 
+  // Torneios: inscrições recebidas e prêmios pagos passam pela gaveta/PIX.
+  const tm = data.tournamentMovements ?? [];
+  const tour = { count: new Set(tm.map(m => m.tournament_id)).size, fee: 0, overlay: 0, collected: 0, prizes: 0 };
+  const byTournament = new Map<string, { pool: number; prizes: number }>();
+  for (const m of tm) {
+    const amount = Number(m.amount);
+    const acc = byTournament.get(m.tournament_id) ?? { pool: 0, prizes: 0 };
+    if (m.kind === 'buyin' || m.kind === 'rebuy' || m.kind === 'addon') {
+      tour.collected += amount;
+      tour.fee += amount - Number(m.to_prize);
+      acc.pool += Number(m.to_prize);
+      if (m.payment_method === 'fiado') fiadoGerado.push({ name: `${m.name} (torneio)`, amount });
+      else if (m.payment_method === 'dinheiro' || m.payment_method === 'pix' || m.payment_method === 'cartao') flows[m.payment_method].recebido += amount;
+      else semForma.recebido += amount;
+    } else if (m.kind === 'premio' || m.kind === 'extra') {
+      tour.prizes += amount;
+      if (m.kind === 'premio') acc.prizes += amount;
+      if (m.payment_method === 'dinheiro' || m.payment_method === 'pix' || m.payment_method === 'cartao') flows[m.payment_method].pago += amount;
+      else semForma.pago += amount;
+      if (m.kind === 'extra') tour.overlay += amount; // prêmio extra sai do bolso da casa
+    }
+    byTournament.set(m.tournament_id, acc);
+  }
+  for (const v of byTournament.values()) tour.overlay += Math.max(0, v.prizes - v.pool);
+
   fiadoGerado.sort((a, b) => b.amount - a.amount);
 
   return {
@@ -133,12 +171,13 @@ export function summarizeNight(data: NightData): NightSummary {
     cashOut,
     consumo,
     rake: buyIn - cashOut,
-    revenue: buyIn - cashOut + consumo,
+    revenue: buyIn - cashOut + consumo + tour.fee - tour.overlay,
     flows,
     semForma,
     fiadoGerado,
     fiadoGeradoTotal: fiadoGerado.reduce((s, f) => s + f.amount, 0),
-    abatido
+    abatido,
+    tournaments: tour
   };
 }
 

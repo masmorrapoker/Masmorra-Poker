@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy, Film, Building2, AlertTriangle } from 'lucide-react';
+import { Users, LayoutDashboard, ArrowLeft, LogOut, User, Settings, MessageSquare, Home, BarChart3, Menu, HandCoins, Wallet, Trophy, Film, Building2, AlertTriangle, Crown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useClub } from '../contexts/ClubContext';
 import { triggerHaptic } from '../utils/haptic';
@@ -18,6 +18,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const desktopNavItems = [
     { path: '/inicio', label: 'Início', icon: <Home size={22} /> },
     { path: '/dashboard', label: 'Mesas', icon: <LayoutDashboard size={22} /> },
+    { path: '/torneios', label: 'Torneios', icon: <Crown size={22} /> },
     { path: '/players', label: 'Jogadores', icon: <Users size={22} /> },
     { path: '/ranking', label: 'Ranking', icon: <Trophy size={22} /> },
     { path: '/caixa', label: 'Caixa', icon: <Wallet size={22} /> },
@@ -43,7 +44,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const dueIn = daysUntil(paidUntil);
   const showDue = (role === 'dono' || role === 'gerente') && dueIn !== null && dueIn <= 5;
 
-  const isSubPage = location.pathname.startsWith('/table/') || location.pathname.startsWith('/player/');
+  const isSubPage = location.pathname.startsWith('/table/') || location.pathname.startsWith('/player/') || location.pathname.startsWith('/torneios/');
 
   const isTabActive = (itemPath: string) => {
     if (itemPath === '/dashboard') {
@@ -52,6 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     if (itemPath === '/players') {
       return location.pathname.startsWith('/players') || (location.pathname.startsWith('/player/') && !location.pathname.startsWith('/profile'));
     }
+    if (itemPath === '/torneios') return location.pathname.startsWith('/torneios');
     return location.pathname === itemPath;
   };
 
@@ -268,6 +270,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div>
                 <span className="text-[10px] text-muted font-bold block uppercase tracking-wider mb-2.5">Gestão do Clube</span>
                 <div className="grid grid-cols-2 gap-3">
+                  <Link
+                    to="/torneios"
+                    onClick={() => {
+                      triggerHaptic('light');
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="p-4 rounded-2xl bg-white bg-opacity-[0.02] border border-glass-border flex flex-col gap-2 hover:bg-white hover:bg-opacity-5 transition-all text-left no-underline"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-warning bg-opacity-10 text-warning flex items-center justify-center">
+                      <Crown size={18} />
+                    </div>
+                    <span className="text-xs font-bold text-white">Torneios</span>
+                    <span className="text-[10px] text-muted leading-tight">Relógio, inscrições e prêmios</span>
+                  </Link>
+
                   {isAdmin && (
                   <Link
                     to="/admin"

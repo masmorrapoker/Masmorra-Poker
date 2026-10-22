@@ -54,7 +54,12 @@ function buildText(clubName: string | null, night: string, s: NightSummary, c: C
   if (s.fiadoGeradoTotal > 0) {
     lines.push('', `*Ficou no fiado: ${formatMoney(s.fiadoGeradoTotal)}*`, ...s.fiadoGerado.map(f => `${f.name}: ${formatMoney(f.amount)}`));
   }
-  if (showFinance) lines.push('', `Rake: ${formatMoney(s.rake)}`, `Consumo: ${formatMoney(s.consumo)}`, `*Receita do clube: ${formatMoney(s.revenue)}*`);
+  if (showFinance) {
+    lines.push('', `Rake: ${formatMoney(s.rake)}`, `Consumo: ${formatMoney(s.consumo)}`);
+    if (s.tournaments.count > 0) lines.push(`Taxa de torneio: ${formatMoney(s.tournaments.fee)}`);
+    if (s.tournaments.overlay > 0) lines.push(`Garantido e extras pagos pela casa: −${formatMoney(s.tournaments.overlay)}`);
+    lines.push(`*Receita do clube: ${formatMoney(s.revenue)}*`);
+  }
   if (c?.note) lines.push('', `Obs.: ${c.note}`);
   return lines.join('\n');
 }
@@ -165,7 +170,7 @@ export default function Caixa() {
 
   const s = summary;
   const d = s?.flows.dinheiro;
-  const hasTables = (s?.tables.length ?? 0) > 0;
+  const hasTables = (s?.tables.length ?? 0) > 0 || (s?.tournaments.count ?? 0) > 0;
   const semForma = s ? s.semForma.recebido + s.semForma.pago : 0;
 
   return (
@@ -208,7 +213,7 @@ export default function Caixa() {
           {!hasTables ? (
             <div className="glass-panel p-8 text-center mb-6">
               <Wallet className="mx-auto text-muted mb-3" size={32} aria-hidden="true" />
-              <p className="text-white font-bold mb-1">Nenhuma mesa nesta noite.</p>
+              <p className="text-white font-bold mb-1">Nenhuma mesa ou torneio nesta noite.</p>
               <p className="text-sm text-muted mb-0">Use as setas para ver outra noite. Mesas abertas depois da meia-noite contam para a noite anterior.</p>
             </div>
           ) : (
@@ -393,6 +398,12 @@ export default function Caixa() {
                     <dl className="text-sm space-y-2 mb-0">
                       <div className="flex justify-between gap-3"><dt className="text-muted">Rake</dt><dd className="text-white font-bold">{formatMoney(s.rake)}</dd></div>
                       <div className="flex justify-between gap-3"><dt className="text-muted">Consumo</dt><dd className="text-white font-bold">{formatMoney(s.consumo)}</dd></div>
+                      {s.tournaments.count > 0 && (
+                        <div className="flex justify-between gap-3"><dt className="text-muted">Taxa de torneio</dt><dd className="text-white font-bold">{formatMoney(s.tournaments.fee)}</dd></div>
+                      )}
+                      {s.tournaments.overlay > 0 && (
+                        <div className="flex justify-between gap-3"><dt className="text-muted">Garantido e extras pagos pela casa</dt><dd className="text-danger font-bold">−{formatMoney(s.tournaments.overlay)}</dd></div>
+                      )}
                       <div className="flex justify-between gap-3 border-t border-glass-border pt-2"><dt className="text-white font-bold">Receita</dt><dd className="text-success font-black">{formatMoney(s.revenue)}</dd></div>
                     </dl>
                   </section>
@@ -400,6 +411,7 @@ export default function Caixa() {
                 </div>
               </div>
 
+              {s.tables.length > 0 && (
               <section className="mb-6" aria-labelledby="mesas-noite-title">
                 <h2 id="mesas-noite-title" className="text-sm font-bold text-muted mb-2">Mesas desta noite</h2>
                 <ul className="space-y-2">
@@ -422,6 +434,7 @@ export default function Caixa() {
                   ))}
                 </ul>
               </section>
+              )}
 
               <div className="flex flex-col md:flex-row gap-2 mb-8 no-print">
                 <button type="button" className="btn btn-outline flex-1" onClick={copyText}>

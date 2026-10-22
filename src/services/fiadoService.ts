@@ -71,6 +71,28 @@ export const fiadoService = {
     if (txRes.error) throw txRes.error;
     if (setRes.error) throw setRes.error;
 
+    // Inscrições de torneio lançadas no fiado (se o recurso existir)
+    let tourEntries: FiadoEntry[] = [];
+    const { data: te } = await supabase.from('tournament_entries').select('id').eq('club_id', clubId).eq('player_id', playerId);
+    const entryIds = (te || []).map(e => e.id);
+    if (entryIds.length) {
+      const { data: tm } = await supabase
+        .from('tournament_movements')
+        .select('id, kind, label, amount, created_at, tournament_id')
+        .eq('club_id', clubId)
+        .eq('payment_method', 'fiado')
+        .in('entry_id', entryIds);
+      tourEntries = (tm || []).map(m => ({
+        kind: 'fiado' as const,
+        id: m.id as string,
+        amount: Number(m.amount),
+        label: `Torneio · ${m.label || m.kind}`,
+        table_id: null,
+        created_at: m.created_at as string,
+        removable: false
+      }));
+    }
+
     const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
     const entries: FiadoEntry[] = [
       ...((txRes.data || []) as Transaction[]).map(tx => ({
@@ -97,7 +119,7 @@ export const fiadoService = {
         removable: new Date(s.created_at).getTime() > dayAgo
       }))
     ];
-    return entries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return [...entries, ...tourEntries].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   /** Abatimentos e pagamentos ligados a uma mesa (lista vazia se o recurso não existir). */
