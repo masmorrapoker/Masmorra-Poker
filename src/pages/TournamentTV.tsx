@@ -30,6 +30,8 @@ export default function TournamentTV() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? 'demo';
   const isDemo = token === 'demo';
+  // ?embed: relógio dentro da página de vendas (sem botões, sem som)
+  const embed = isDemo && typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('embed');
   const demo = useRef<ReturnType<typeof createDemo> | null>(null);
   const [data, setData] = useState<TvPayload | null>(null);
   const [missing, setMissing] = useState(false);
@@ -69,7 +71,7 @@ export default function TournamentTV() {
     const load = async () => {
       try {
         const t0 = Date.now();
-        if (isDemo && !demo.current) demo.current = createDemo();
+        if (isDemo && !demo.current) demo.current = createDemo(embed ? 9000 : 40000);
         const p = isDemo && demo.current ? demo.current() : await tournamentService.tv(token);
         if (!alive) return;
         if (!p) { setMissing(true); return; }
@@ -107,7 +109,7 @@ export default function TournamentTV() {
     load();
     const id = window.setInterval(load, 1500);
     return () => { alive = false; window.clearInterval(id); };
-  }, [token, enqueue, isDemo]);
+  }, [token, enqueue, isDemo, embed]);
 
   // Relógio local (corrigido pela hora do servidor)
   useEffect(() => {
@@ -224,7 +226,7 @@ export default function TournamentTV() {
   const itm = payouts.length;
 
   return (
-    <div className={`tv-root ${isBreak ? 'tv-break' : ''}`} onClick={() => !soundOn && activate()}>
+    <div className={`tv-root ${isBreak ? 'tv-break' : ''}`} onClick={() => !soundOn && !embed && activate()}>
       <TvStyle />
       <div className="tv-glow" aria-hidden="true" />
 
@@ -236,7 +238,7 @@ export default function TournamentTV() {
             <div className="tv-tournament">{data.tournament.name}</div>
           </div>
         </div>
-        {isDemo ? (
+        {isDemo && !embed ? (
           <a
             className="tv-demo-cta"
             href={`https://wa.me/${SALES_WHATSAPP}?text=${encodeURIComponent('Olá! Vi a demonstração do relógio de torneio e quero o Masmorra Manager no meu clube.')}`}
@@ -332,7 +334,7 @@ export default function TournamentTV() {
         </div>
       )}
 
-      {!soundOn ? (
+      {embed ? null : !soundOn ? (
         <button type="button" className="tv-activate" onClick={e => { e.stopPropagation(); activate(); }}>
           Toque para ativar som e tela cheia
         </button>

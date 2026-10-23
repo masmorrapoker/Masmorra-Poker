@@ -14,7 +14,7 @@ const NAMES = [
   'Samuel', 'Vítor', 'Jonas', 'Arthur'
 ];
 
-export function createDemo(): () => TvPayload {
+export function createDemo(firstLevelMs = 40000): () => TvPayload {
   const cfg = defaultConfig();
   cfg.gtd = 5000;
   cfg.extras = [{ id: 'cl', label: 'Chip leader no intervalo', amount: 300 }];
@@ -38,8 +38,8 @@ export function createDemo(): () => TvPayload {
     }))
   ];
 
-  // Nível 6 terminando em 40 s: logo de cara a TV mostra a subida de blind.
-  const clock = { clock_level: 5, clock_running: true, clock_ends_at: new Date(start + 40000).toISOString(), clock_remaining: null as number | null };
+  // Nível 6 terminando logo (40 s por padrão): logo de cara a TV mostra a subida de blind.
+  const clock = { clock_level: 5, clock_running: true, clock_ends_at: new Date(start + firstLevelMs).toISOString(), clock_remaining: null as number | null };
   let seq = 0;
   let lastEvent = start;
 
