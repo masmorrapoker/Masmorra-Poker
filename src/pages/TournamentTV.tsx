@@ -446,10 +446,53 @@ function TvStyle() {
       @keyframes tv-fade { from { opacity: 0; } }
       @keyframes tv-zoom { from { transform: scale(.7); opacity: 0; } }
       @media (prefers-reduced-motion: reduce) { .tv-root *, .tv-root { animation: none !important; transition: none !important; } }
+      /* Tela em pé (celular, monitor vertical): uma coluna com rolagem, relógio primeiro,
+         tamanhos pela largura e o botão de ativar som embaixo, sem cobrir o nível. */
       @media (max-aspect-ratio: 1/1) {
-        .tv-main { grid-template-columns: 1fr; text-align: center; gap: 3vh; }
+        .tv-root { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; align-content: start; overflow-x: hidden; overflow-y: auto; }
+        .tv-top { padding: 16px 16px 0; gap: 12px; align-items: flex-start; }
+        .tv-club { max-width: none; flex: 1; gap: 10px; }
+        .tv-club-logo { width: 40px; height: 40px; }
+        .tv-club-name { font-size: clamp(20px, 6.4vw, 44px); }
+        .tv-tournament { font-size: clamp(13px, 3.6vw, 22px); margin-top: 4px; }
+        .tv-demo-cta { flex-shrink: 0; padding: 10px 14px; border-radius: 10px; font-size: 14px; }
+        .tv-brand { gap: 6px; font-size: 12px; flex-shrink: 0; }
+        .tv-brand img { width: 20px; height: 20px; }
+
+        .tv-main { grid-template-columns: 1fr; text-align: center; gap: 22px; padding: 22px 16px 8px; }
+        .tv-clock { order: -1; }
+        .tv-time { font-size: min(30vw, 22vh); }
+        .tv-progress { height: 8px; margin-top: 12px; border-radius: 8px; }
+        .tv-state { margin-top: 8px; font-size: 15px; min-height: 0; }
+        .tv-notice { margin-top: 6px; font-size: 14px; }
+        .tv-side { gap: 6px; }
         .tv-prize, .tv-blinds { align-items: center; text-align: center; }
-        .tv-time { font-size: 18vh; }
+        .tv-label { font-size: 14px; }
+        .tv-blinds-value { font-size: clamp(40px, 13vw, 96px); }
+        .tv-blinds-value.tv-small { font-size: clamp(28px, 8vw, 56px); }
+        .tv-ante { font-size: clamp(20px, 6vw, 40px); }
+        .tv-next { margin-top: 6px; gap: 2px; font-size: 15px; }
+        .tv-prize-value { font-size: clamp(36px, 12vw, 88px); }
+        .tv-gtd { font-size: 14px; }
+        .tv-payouts { min-width: 0; width: min(100%, 420px); margin-top: 8px; gap: 0; }
+        .tv-payouts li { font-size: 16px; padding: 7px 0; }
+        .tv-extras { margin-top: 6px; font-size: 13px; }
+
+        .tv-bottom { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 8px; padding: 22px 16px 96px; }
+        .tv-stat span { font-size: 12px; text-align: center; }
+        .tv-stat strong { font-size: clamp(24px, 7vw, 40px); }
+        .tv-wall { height: 12px; }
+
+        .tv-activate { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; padding: 14px 16px; border-radius: 12px; font-size: 16px; }
+        .tv-voice { position: fixed; right: 12px; bottom: 8px; font-size: 12px; }
+        .tv-toast { position: fixed; bottom: 84px; min-width: 0; width: calc(100% - 32px); max-width: none; flex-wrap: wrap; gap: 4px 10px; padding: 12px 16px; border-radius: 12px; }
+        .tv-toast-title, .tv-toast-detail { font-size: 14px; }
+        .tv-toast-name { font-size: clamp(24px, 8vw, 40px); }
+        .tv-takeover { position: fixed; }
+        .tv-takeover-title { font-size: 20px; }
+        .tv-takeover-big, .tv-takeover-champ .tv-takeover-big { font-size: clamp(44px, 15vw, 120px); }
+        .tv-takeover-sub { font-size: 18px; }
+        .tv-takeover-champ .tv-takeover-sub { font-size: 24px; }
       }
     `}</style>
   );
