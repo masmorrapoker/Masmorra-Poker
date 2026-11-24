@@ -126,7 +126,7 @@ function HeroTV() {
     return () => { ro?.disconnect(); window.removeEventListener('resize', fit); };
   }, []);
   return (
-    <a className={`mm-tv ${loaded ? 'is-on' : ''}`} href="/demo" target="_blank" rel="noreferrer" aria-label="Abrir o relógio de torneio em tela cheia">
+    <a className={`mm-tv ${loaded ? 'is-on' : ''}`} href="/demo" target="_blank" rel="noreferrer" aria-label="Ao vivo, simulação: abrir o relógio de torneio em tela cheia">
       <div className="mm-tv-screen" ref={screen}>
         {src && (
           <iframe
@@ -270,7 +270,7 @@ function Story() {
             <time>{s.time}</time>
             <h3>{s.title}</h3>
             <p>{s.text}</p>
-            <div className="mm-step-phone"><Phone time={s.time}>{s.screen}</Phone></div>
+            <div className="mm-step-phone" aria-hidden="true"><Phone time={s.time}>{s.screen}</Phone></div>
           </li>
         ))}
       </ol>

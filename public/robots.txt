@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+Disallow: /inicio
+Disallow: /dashboard
+Disallow: /table/
+Disallow: /torneios
+Disallow: /players
+Disallow: /player/
+Disallow: /ranking
+Disallow: /caixa
+Disallow: /fiado
+Disallow: /relationship
+Disallow: /settings
+Disallow: /profile
+Disallow: /admin
+Disallow: /analytics
+Disallow: /retrospectiva
+Disallow: /convite/
+Disallow: /nova-senha
+Disallow: /tv/
+
+Sitemap: https://masmorramanager.com.br/sitemap.xml
