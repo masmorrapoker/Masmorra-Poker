@@ -20,6 +20,12 @@
   padding: 0;
 }
 
+/* Listas do sistema são cartões e linhas, não tópicos: sem o "•" que o navegador põe por padrão
+   (com o padding zerado acima, o marcador ficava pendurado na borda esquerda da tela). */
+ul, ol {
+  list-style: none;
+}
+
 a, button {
   text-decoration: none;
   color: inherit;
@@ -1286,13 +1292,15 @@ body {
   background-color: rgba(255, 255, 255, 0.04) !important;
 }
 
+/* Anima só o aviso (sobe e aparece). Quem centraliza na tela é o contêiner (left-1/2 -translate-x-1/2);
+   o -50% aqui empurrava cada aviso meia largura para a esquerda e ele saía cortado no celular. */
 @keyframes toastSlideIn {
   from {
-    transform: translate(-50%, 30px) scale(0.9);
+    transform: translateY(30px) scale(0.9);
     opacity: 0;
   }
   to {
-    transform: translate(-50%, 0) scale(1);
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
@@ -1431,5 +1439,5 @@ img[src*="logo.png"]:hover {
 /* Termos e Privacidade */
 .legal-text h2 { font-size: 1.05rem; color: #fff; margin: 2rem 0 0.5rem; }
 .legal-text p, .legal-text li { color: rgba(226, 232, 240, 0.85); font-size: 0.95rem; line-height: 1.7; max-width: 68ch; }
-.legal-text ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+.legal-text ul { list-style: disc; padding-left: 1.25rem; margin: 0.5rem 0; }
 .legal-text li { margin-bottom: 0.35rem; }
