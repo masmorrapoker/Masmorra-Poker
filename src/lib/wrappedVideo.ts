@@ -1,6 +1,9 @@
 import type { Retrospective } from './retrospective';
 import { formatMinutes } from './retrospective';
 import { formatMoney } from '../utils';
+import { FONT_CSS } from './fonts';
+
+export { FONT_CSS };
 
 /**
  * Vídeo vertical (1080×1920) da retrospectiva do mês, desenhado em canvas.
@@ -23,8 +26,6 @@ const C = {
 const DISPLAY = '"Big Shoulders Display", "Arial Narrow", Impact, sans-serif';
 const TEXT = 'Inter, system-ui, -apple-system, sans-serif';
 
-export const FONT_CSS =
-  'https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Inter:wght@500;600;700&display=swap';
 
 export async function loadFonts(): Promise<void> {
   if (!document.querySelector(`link[href="${FONT_CSS}"]`)) {

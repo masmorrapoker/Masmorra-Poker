@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, Menu, MessageCircle, Play, Volume2, X } from 'lucide-react';
-import { FONT_CSS, buildSlides, renderAt, totalDuration, loadFonts, W as VW, H as VH } from '../lib/wrappedVideo';
+import { FONT_CSS } from '../lib/fonts';
 import type { Retrospective } from '../lib/retrospective';
 import { sounds, unlockAudio } from '../lib/tournamentSounds';
 
@@ -91,6 +91,30 @@ function HeroTV() {
   const screen = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
   const [loaded, setLoaded] = useState(false);
+  // O relógio dentro da TV é o app inteiro rodando num iframe, o trecho mais pesado da página.
+  // Ele só liga depois que a página terminou de carregar: na primeira interação (rolar, tocar,
+  // mexer o mouse) ou 3 s depois, o que vier primeiro. Assim a página responde antes.
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let timer = 0;
+    const events = ['scroll', 'pointerdown', 'pointermove', 'keydown', 'touchstart'] as const;
+    const turnOn = () => {
+      window.clearTimeout(timer);
+      events.forEach(ev => window.removeEventListener(ev, turnOn));
+      setSrc('/demo?embed=1');
+    };
+    const armed = () => {
+      timer = window.setTimeout(turnOn, 3000);
+      events.forEach(ev => window.addEventListener(ev, turnOn, { once: true, passive: true }));
+    };
+    if (document.readyState === 'complete') armed();
+    else window.addEventListener('load', armed, { once: true });
+    return () => {
+      window.removeEventListener('load', armed);
+      window.clearTimeout(timer);
+      events.forEach(ev => window.removeEventListener(ev, turnOn));
+    };
+  }, []);
   useEffect(() => {
     const el = screen.current;
     if (!el) return;
@@ -104,13 +128,15 @@ function HeroTV() {
   return (
     <a className={`mm-tv ${loaded ? 'is-on' : ''}`} href="/demo" target="_blank" rel="noreferrer" aria-label="Abrir o relógio de torneio em tela cheia">
       <div className="mm-tv-screen" ref={screen}>
-        <iframe
-          src="/demo?embed=1"
-          title="Relógio de torneio ao vivo"
-          tabIndex={-1}
-          onLoad={() => window.setTimeout(() => setLoaded(true), 700)}
-          style={{ transform: `scale(${scale})` }}
-        />
+        {src && (
+          <iframe
+            src={src}
+            title="Relógio de torneio ao vivo"
+            tabIndex={-1}
+            onLoad={() => window.setTimeout(() => setLoaded(true), 700)}
+            style={{ transform: `scale(${scale})` }}
+          />
+        )}
         <div className="mm-tv-power" aria-hidden="true" />
         <div className="mm-tv-glare" aria-hidden="true" />
       </div>
@@ -331,15 +357,17 @@ function RetroPhone() {
   useEffect(() => {
     if (!visible) return;
     let raf = 0, alive = true;
-    const opts = { clubName: 'Seu Clube de Poker', logo: null, showMoney: true, disabled: [] as string[] };
-    const slides = buildSlides(RETRO, opts);
-    const total = totalDuration(slides);
-    const start = performance.now();
     const cv = canvas.current;
     const ctx = cv?.getContext('2d');
     if (!cv || !ctx) return;
-    loadFonts().then(() => {
+    // O desenho da retrospectiva só é baixado quando o celular aparece na tela.
+    import('../lib/wrappedVideo').then(async ({ buildSlides, renderAt, totalDuration, loadFonts, W: VW, H: VH }) => {
+      const opts = { clubName: 'Seu Clube de Poker', logo: null, showMoney: true, disabled: [] as string[] };
+      const slides = buildSlides(RETRO, opts);
+      const total = totalDuration(slides);
+      await loadFonts();
       if (!alive) return;
+      const start = performance.now();
       setReady(true);
       const still = reduceMotion();
       const draw = (t: number) => {
@@ -349,7 +377,7 @@ function RetroPhone() {
         if (!still) raf = requestAnimationFrame(draw);
       };
       raf = requestAnimationFrame(draw);
-    });
+    }).catch(() => { /* sem conexão: o celular fica com a tela escura */ });
     return () => { alive = false; cancelAnimationFrame(raf); };
   }, [visible]);
   return (
@@ -450,10 +478,19 @@ export default function Home() {
     }
     const prev = document.body.style.background;
     document.body.style.background = '#04060c';
+    // Na página de vendas o visitante pode dar zoom (acessibilidade). No sistema o zoom
+    // continua travado para o iPhone não ampliar a tela ao tocar num campo.
+    const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    const prevViewport = viewport?.content;
+    if (viewport) viewport.content = 'width=device-width, initial-scale=1.0, viewport-fit=cover';
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => { document.body.style.background = prev; window.removeEventListener('scroll', onScroll); };
+    return () => {
+      document.body.style.background = prev;
+      if (viewport && prevViewport) viewport.content = prevViewport;
+      window.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
   // Parallax leve do hero com o mouse

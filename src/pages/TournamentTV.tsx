@@ -12,7 +12,7 @@ import {
 } from '../lib/tournament';
 import { sounds, speak, unlockAudio } from '../lib/tournamentSounds';
 import { formatMoney } from '../utils';
-import { FONT_CSS } from '../lib/wrappedVideo';
+import { FONT_CSS } from '../lib/fonts';
 import { createDemo } from '../lib/tournamentDemo';
 
 const SALES_WHATSAPP = '5551998811587';
@@ -111,11 +111,12 @@ export default function TournamentTV() {
     return () => { alive = false; window.clearInterval(id); };
   }, [token, enqueue, isDemo, embed]);
 
-  // Relógio local (corrigido pela hora do servidor)
+  // Relógio local (corrigido pela hora do servidor). Dentro da página de vendas basta
+  // atualizar uma vez por segundo, para pesar menos no celular de quem está vendo.
   useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), 250);
+    const id = window.setInterval(() => setNow(Date.now()), embed ? 1000 : 250);
     return () => window.clearInterval(id);
-  }, []);
+  }, [embed]);
 
   const cfg = data?.tournament.config;
   const clock: ClockState | null = useMemo(
