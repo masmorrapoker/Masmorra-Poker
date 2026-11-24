@@ -1,31 +1,34 @@
-import type React from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Dashboard from './pages/Dashboard';
-import TableDetail from './pages/TableDetail';
-import Players from './pages/Players';
-import PlayerProfile from './pages/PlayerProfile';
-import Relationship from './pages/Relationship';
-import Fiado from './pages/Fiado';
-import Caixa from './pages/Caixa';
-import Ranking from './pages/Ranking';
-import Retrospectiva from './pages/Retrospectiva';
-import Inicio from './pages/Inicio';
-import Settings from './pages/Settings';
-import Analytics from './pages/Analytics';
-import OperatorProfile from './pages/OperatorProfile';
 import Layout from './components/Layout';
-import Login from './pages/Login';
 import Home from './pages/Home';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ClubProvider, useClub } from './contexts/ClubContext';
 import { AlertCircle, LogOut, MessageCircle } from 'lucide-react';
-import Convite from './pages/Convite';
-import Admin from './pages/Admin';
-import Legal from './pages/Legal';
-import NovaSenha from './pages/NovaSenha';
-import Tournaments from './pages/Tournaments';
-import Tournament from './pages/Tournament';
-import TournamentTV from './pages/TournamentTV';
+
+// Só a página de vendas vem no carregamento inicial; as telas do sistema, a TV e o
+// login são baixados quando a pessoa abre a rota.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const TableDetail = lazy(() => import('./pages/TableDetail'));
+const Players = lazy(() => import('./pages/Players'));
+const PlayerProfile = lazy(() => import('./pages/PlayerProfile'));
+const Relationship = lazy(() => import('./pages/Relationship'));
+const Fiado = lazy(() => import('./pages/Fiado'));
+const Caixa = lazy(() => import('./pages/Caixa'));
+const Ranking = lazy(() => import('./pages/Ranking'));
+const Retrospectiva = lazy(() => import('./pages/Retrospectiva'));
+const Inicio = lazy(() => import('./pages/Inicio'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const OperatorProfile = lazy(() => import('./pages/OperatorProfile'));
+const Login = lazy(() => import('./pages/Login'));
+const Convite = lazy(() => import('./pages/Convite'));
+const Admin = lazy(() => import('./pages/Admin'));
+const Legal = lazy(() => import('./pages/Legal'));
+const NovaSenha = lazy(() => import('./pages/NovaSenha'));
+const Tournaments = lazy(() => import('./pages/Tournaments'));
+const Tournament = lazy(() => import('./pages/Tournament'));
+const TournamentTV = lazy(() => import('./pages/TournamentTV'));
 
 function ClubErrorView({ error, logout }: { error: string; logout: () => Promise<void> }) {
   return (
@@ -52,36 +55,47 @@ function ClubErrorView({ error, logout }: { error: string; logout: () => Promise
   );
 }
 
+/** Tela de carregamento (logo + spinner). */
+function Splash() {
+  return (
+    <div className="flex h-screen w-screen flex-col items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#090d16' }}>
+      {/* Background decorative glows */}
+      <div className="absolute top-[20%] left-[20%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)' }} />
+      <div className="absolute bottom-[20%] right-[20%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }} />
+      
+      <div className="flex flex-col items-center gap-6 relative z-10 animate-fade-in">
+        {/* Glowing rotating brand logo */}
+        <div className="flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-xl shadow-primary/20" style={{ padding: '16px' }}>
+          <img src="/logo.png?v=2" alt="Logo" className="w-16 h-16 object-contain lp-loading-logo" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-white mb-2" style={{ margin: 0 }}>Masmorra Manager</h2>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>Carregando fortress...</p>
+        </div>
+        <div className="spinner mt-2" style={{ width: '28px', height: '28px', borderWidth: '3px' }}></div>
+      </div>
+    </div>
+  );
+}
+
+/** Páginas que não dependem do login: aparecem sem esperar a checagem da sessão. */
+function isPublicPage(path: string) {
+  return path === '/' || path === '/termos' || path === '/privacidade' || path === '/demo' || path.startsWith('/tv/');
+}
+
 function MainApp() {
   const { user, loading: authLoading } = useAuth();
   const { loading: clubLoading } = useClub();
 
-  // Premium Elegant Splash Screen
-  const onInvitePage = typeof window !== 'undefined' && (window.location.pathname.startsWith('/convite/') || window.location.pathname === '/nova-senha' || window.location.pathname.startsWith('/tv/') || window.location.pathname === '/demo');
-  if (authLoading || (user && clubLoading && !onInvitePage)) {
-    return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center relative overflow-hidden" style={{ backgroundColor: '#090d16' }}>
-        {/* Background decorative glows */}
-        <div className="absolute top-[20%] left-[20%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(59, 130, 246, 0.08)' }} />
-        <div className="absolute bottom-[20%] right-[20%] w-[40%] h-[40%] rounded-full blur-[120px] pointer-events-none" style={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }} />
-        
-        <div className="flex flex-col items-center gap-6 relative z-10 animate-fade-in">
-          {/* Glowing rotating brand logo */}
-          <div className="flex items-center justify-center w-24 h-24 rounded-2xl bg-gradient-to-br from-primary to-blue-600 text-white shadow-xl shadow-primary/20" style={{ padding: '16px' }}>
-            <img src="/logo.png?v=2" alt="Logo" className="w-16 h-16 object-contain lp-loading-logo" />
-          </div>
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-white mb-2" style={{ margin: 0 }}>Masmorra Manager</h2>
-            <p className="text-sm text-muted" style={{ margin: 0 }}>Carregando fortress...</p>
-          </div>
-          <div className="spinner mt-2" style={{ width: '28px', height: '28px', borderWidth: '3px' }}></div>
-        </div>
-      </div>
-    );
+  const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const onInvitePage = path.startsWith('/convite/') || path === '/nova-senha' || path.startsWith('/tv/') || path === '/demo';
+  if (!isPublicPage(path) && (authLoading || (user && clubLoading && !onInvitePage))) {
+    return <Splash />;
   }
 
   return (
     <Router>
+      <Suspense fallback={<Splash />}>
       <Routes>
         {/* Públicas */}
         <Route path="/" element={<Home />} />
@@ -115,15 +129,19 @@ function MainApp() {
 
         <Route path="*" element={<Navigate to={user ? '/inicio' : '/'} replace />} />
       </Routes>
+      </Suspense>
     </Router>
   );
 }
 
 /** Rota privada: exige login e clube ativo; `finance` exige dono ou gerente. */
-function Private({ children, finance = false }: { children: React.ReactNode; finance?: boolean }) {
+function Private({ children, finance = false }: { children: ReactNode; finance?: boolean }) {
   const { user, logout } = useAuth();
-  const { error, blocked, canSeeFinance } = useClub();
+  const { error, blocked, canSeeFinance, loading } = useClub();
   if (!user) return <Navigate to="/login" replace />;
+  // Papel e clube ainda carregando (ex.: veio da página de vendas já logado): espera,
+  // para nunca mostrar a tela com o papel errado (o caixa não vê faturamento).
+  if (loading) return <Splash />;
   if (blocked && error) return <BlockedView message={error} logout={logout} />;
   if (error) return <ClubErrorView error={error} logout={logout} />;
   if (finance && !canSeeFinance) return <Navigate to="/inicio" replace />;
